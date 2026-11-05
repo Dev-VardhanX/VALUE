@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,30 +30,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.android.value.core.TimeUtils
+import com.android.value.model.TimerStatus
+import com.android.value.model.TimerTheme
+import com.android.value.ui.components.TimerVisual
 import com.android.value.ui.theme.PureBlack
 import com.android.value.ui.theme.PureWhite
 import kotlinx.coroutines.delay
 
 /**
  * Screen 3: Fullscreen Mode.
- * Immersive sticky mode hiding status and navigation bars.
- * Shows only the huge countdown digits centered on pure black.
- * Single tap briefly reveals an exit fullscreen icon that auto-hides after 2 seconds.
- * Back press also exits fullscreen.
- * Scales dynamically to fill available width in landscape and portrait.
+ * Immersive sticky mode displaying the selected theme visual scaled to the screen bounds.
+ * Pure black background with nothing else visible except the visualization and digits.
+ * Tap anywhere reveals a 2-second auto-hiding exit fullscreen button.
  */
 @Composable
 fun FullscreenTimerScreen(
+    theme: TimerTheme,
     remainingMillis: Long,
+    totalMillis: Long,
+    status: TimerStatus,
     onExitFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -94,9 +91,7 @@ fun FullscreenTimerScreen(
         }
     }
 
-    val formattedTime = TimeUtils.formatHms(remainingMillis)
-
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(PureBlack)
@@ -108,21 +103,13 @@ fun FullscreenTimerScreen(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Compute optimal font size based on screen dimensions so digits scale to fill width in landscape/portrait
-        val computedFontSize = minOf(
-            maxWidth.value / 5.2f,
-            maxHeight.value * 0.70f
-        ).coerceIn(36f, 260f).sp
-
-        Text(
-            text = formattedTime,
-            fontSize = computedFontSize,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.ExtraLight,
-            color = PureWhite,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            softWrap = false
+        // Active visual scaled to the full viewport
+        TimerVisual(
+            theme = theme,
+            remainingMillis = remainingMillis,
+            totalMillis = totalMillis,
+            status = status,
+            modifier = Modifier.fillMaxSize()
         )
 
         // Exit fullscreen icon button (auto-hides after 2 seconds)
@@ -151,9 +138,6 @@ fun FullscreenTimerScreen(
     }
 }
 
-/**
- * Finds the nearest Activity from Context, unwrapping any ContextWrappers.
- */
 private fun Context.findActivity(): Activity? {
     var current = this
     while (current is ContextWrapper) {
@@ -162,4 +146,3 @@ private fun Context.findActivity(): Activity? {
     }
     return null
 }
-

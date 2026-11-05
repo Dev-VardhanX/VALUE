@@ -121,7 +121,10 @@ fun TimerApp(
             when (screen) {
                 "fullscreen" -> {
                     FullscreenTimerScreen(
+                        theme = uiState.theme,
                         remainingMillis = uiState.remainingMillis,
+                        totalMillis = uiState.totalMillis,
+                        status = uiState.status,
                         onExitFullscreen = { viewModel.setFullscreen(false) }
                     )
                 }
@@ -137,6 +140,8 @@ fun TimerApp(
                         status = uiState.status,
                         remainingMillis = uiState.remainingMillis,
                         totalMillis = uiState.totalMillis,
+                        theme = uiState.theme,
+                        onThemeChange = { viewModel.setTheme(it) },
                         onPauseClick = { viewModel.pauseTimer() },
                         onResumeClick = { viewModel.resumeTimer() },
                         onResetClick = { viewModel.resetTimer() },
@@ -149,9 +154,11 @@ fun TimerApp(
                         hours = uiState.selectedHours,
                         minutes = uiState.selectedMinutes,
                         seconds = uiState.selectedSeconds,
+                        selectedTheme = uiState.theme,
                         onHoursChange = { viewModel.setHours(it) },
                         onMinutesChange = { viewModel.setMinutes(it) },
                         onSecondsChange = { viewModel.setSeconds(it) },
+                        onThemeChange = { viewModel.setTheme(it) },
                         onStartClick = { viewModel.startTimer() }
                     )
                 }

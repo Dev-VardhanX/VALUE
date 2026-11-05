@@ -10,6 +10,7 @@ package com.android.value.model
  * @property selectedHours Picker value for hours (0-23).
  * @property selectedMinutes Picker value for minutes (0-59).
  * @property selectedSeconds Picker value for seconds (0-59).
+ * @property theme Currently selected visual theme.
  */
 data class TimerUiState(
     val status: TimerStatus = TimerStatus.Idle,
@@ -18,7 +19,8 @@ data class TimerUiState(
     val isFullscreen: Boolean = false,
     val selectedHours: Int = 0,
     val selectedMinutes: Int = 0,
-    val selectedSeconds: Int = 0
+    val selectedSeconds: Int = 0,
+    val theme: TimerTheme = TimerTheme.CIRCLE
 ) {
     val totalPickerMillis: Long
         get() = (selectedHours * 3600L + selectedMinutes * 60L + selectedSeconds) * 1000L
@@ -26,4 +28,3 @@ data class TimerUiState(
     val isPickerValid: Boolean
         get() = totalPickerMillis > 0L
 }
-

@@ -17,7 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.android.value.model.TimerTheme
 import com.android.value.ui.components.PrimaryPillButton
+import com.android.value.ui.components.ThemeSelectorRow
 import com.android.value.ui.components.WheelTimePicker
 import com.android.value.ui.theme.PureBlack
 import com.android.value.ui.theme.PureWhite
@@ -25,16 +27,19 @@ import com.android.value.ui.theme.SubtleGray
 
 /**
  * Screen 1: Set Timer screen.
- * Allows user to pick Hours (0-23), Minutes (0-59), and Seconds (0-59) via wheel/tappable pickers.
+ * Allows user to pick Hours, Minutes, and Seconds via wheel/tappable pickers,
+ * choose visual countdown themes via a miniature tile carousel, and start the countdown.
  */
 @Composable
 fun SetTimerScreen(
     hours: Int,
     minutes: Int,
     seconds: Int,
+    selectedTheme: TimerTheme,
     onHoursChange: (Int) -> Unit,
     onMinutesChange: (Int) -> Unit,
     onSecondsChange: (Int) -> Unit,
+    onThemeChange: (TimerTheme) -> Unit,
     onStartClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -50,14 +55,14 @@ fun SetTimerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Minimal header
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = 12.dp)
             ) {
                 Text(
                     text = "VALUE",
@@ -66,10 +71,10 @@ fun SetTimerScreen(
                     color = SubtleGray,
                     letterSpacing = 4.sp
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Set Timer",
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Light,
                     color = PureWhite,
                     letterSpacing = 0.5.sp
@@ -84,23 +89,30 @@ fun SetTimerScreen(
                 onHoursChange = onHoursChange,
                 onMinutesChange = onMinutesChange,
                 onSecondsChange = onSecondsChange,
-                modifier = Modifier.padding(vertical = 24.dp)
+                modifier = Modifier.padding(vertical = 12.dp)
             )
 
-            // Large Start button at the bottom
+            // Theme selector row + Start button at the bottom
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Theme selector row
+                ThemeSelectorRow(
+                    selectedTheme = selectedTheme,
+                    onThemeSelected = onThemeChange,
+                    modifier = Modifier.padding(bottom = 20.dp)
+                )
+
+                // Large Start button
                 PrimaryPillButton(
                     text = "Start",
                     onClick = onStartClick,
                     enabled = isStartEnabled,
                     modifier = Modifier.fillMaxWidth(0.85f)
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
 }
-

@@ -1,9 +1,12 @@
 package com.android.value.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.value.core.ThemePreferencesRepository
 import com.android.value.core.TimerEngine
 import com.android.value.model.TimerStatus
+import com.android.value.model.TimerTheme
 import com.android.value.model.TimerUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,14 +16,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel orchestrating timer state for the UI, surviving configuration changes and rotations.
+ * ViewModel orchestrating timer state and theme preferences for the UI,
+ * surviving configuration changes and rotations.
  */
-class TimerViewModel : ViewModel() {
+class TimerViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val themeRepository = ThemePreferencesRepository(application)
 
     private val _uiState = MutableStateFlow(TimerUiState())
     val uiState: StateFlow<TimerUiState> = _uiState.asStateFlow()
 
     init {
+        // Observe timer engine changes
         viewModelScope.launch {
             TimerEngine.snapshot.collectLatest { snapshot ->
                 _uiState.update { current ->
@@ -34,6 +41,25 @@ class TimerViewModel : ViewModel() {
                 }
             }
         }
+
+        // Observe persisted theme changes
+        viewModelScope.launch {
+            themeRepository.selectedThemeFlow.collectLatest { savedTheme ->
+                _uiState.update { it.copy(theme = savedTheme) }
+            }
+        }
+    }
+
+    fun setTheme(theme: TimerTheme) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(theme = theme) }
+            themeRepository.setTheme(theme)
+        }
+    }
+
+    fun cycleNextTheme() {
+        val nextTheme = _uiState.value.theme.next()
+        setTheme(nextTheme)
     }
 
     fun setHours(hours: Int) {
@@ -78,4 +104,3 @@ class TimerViewModel : ViewModel() {
         _uiState.update { it.copy(isFullscreen = enabled) }
     }
 }
-
