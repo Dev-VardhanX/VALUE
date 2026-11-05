@@ -33,3 +33,4 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
 If you have any questions regarding this Privacy Policy, you may contact the developer at:
 - **Email:** dev0vardhan@gmail.com
 - **GitHub:** https://github.com/Dev-VardhanX/VALUE
+
