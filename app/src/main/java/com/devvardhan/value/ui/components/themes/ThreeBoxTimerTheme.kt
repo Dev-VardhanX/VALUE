@@ -17,12 +17,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.ScoreboardDigitsHelper
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.ui.theme.BorderSubtle
@@ -43,9 +47,8 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 3: Three Box (Scoreboard).
- * Three stadium/arena scoreboard panels labelled HRS, MIN, SEC.
- * Each panel houses two individual digit cells that perform a vertical odometer roll
- * only when that specific digit changes.
+ * Three scoreboard panels labelled HRS, MIN, SEC side-by-side.
+ * In landscape, panels expand across full width and height with huge odometer rolling digits.
  */
 @Composable
 fun ThreeBoxTimerTheme(
@@ -60,21 +63,18 @@ fun ThreeBoxTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val availableWidth = maxWidth.value
-        val availableHeight = maxHeight.value
-        val isLandscape = availableWidth > availableHeight * 1.3f
-
-        // Sizing for 3 panels side-by-side
-        val cellWidth = if (isLandscape) {
-            minOf((availableWidth - 140f) / 7.5f, availableHeight * 0.28f, 52f).coerceIn(32f, 56f).dp
-        } else {
-            minOf((availableWidth - 90f) / 6.8f, availableHeight * 0.22f, 48f).coerceIn(30f, 52f).dp
+        val dims = remember(maxWidth.value, maxHeight.value) {
+            AdaptiveLayoutHelper.calculateThreeBoxDimensions(maxWidth.value, maxHeight.value)
         }
-        val cellHeight = cellWidth * 1.45f
-        val fontSize = (cellHeight.value * 0.65f).coerceIn(24f, 48f).sp
+
+        val panelWidth = dims.panelWidth.dp
+        val panelHeight = dims.panelHeight.dp
+        val cellWidth = ((dims.panelWidth - 28f) / 2f).coerceAtLeast(28f).dp
+        val cellHeight = (dims.panelHeight - 44f).coerceAtLeast(40f).dp
+        val fontSize = dims.fontSize.sp
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy((maxWidth.value * 0.02f).coerceIn(6f, 18f).dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 8.dp)
         ) {
@@ -82,6 +82,8 @@ fun ThreeBoxTimerTheme(
                 label = "HRS",
                 tensDigit = digits.hoursTens,
                 onesDigit = digits.hoursOnes,
+                panelWidth = panelWidth,
+                panelHeight = panelHeight,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
                 fontSize = fontSize
@@ -91,6 +93,8 @@ fun ThreeBoxTimerTheme(
                 label = "MIN",
                 tensDigit = digits.minutesTens,
                 onesDigit = digits.minutesOnes,
+                panelWidth = panelWidth,
+                panelHeight = panelHeight,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
                 fontSize = fontSize
@@ -100,6 +104,8 @@ fun ThreeBoxTimerTheme(
                 label = "SEC",
                 tensDigit = digits.secondsTens,
                 onesDigit = digits.secondsOnes,
+                panelWidth = panelWidth,
+                panelHeight = panelHeight,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
                 fontSize = fontSize
@@ -113,32 +119,37 @@ private fun ScoreboardPanel(
     label: String,
     tensDigit: Char,
     onesDigit: Char,
+    panelWidth: Dp,
+    panelHeight: Dp,
     cellWidth: Dp,
     cellHeight: Dp,
     fontSize: TextUnit,
     modifier: Modifier = Modifier
 ) {
-    val panelShape = RoundedCornerShape(14.dp)
+    val panelShape = RoundedCornerShape((panelWidth.value * 0.12f).coerceIn(10f, 22f).dp)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
+            .size(width = panelWidth, height = panelHeight)
             .clip(panelShape)
             .background(Color(0xFF0A0A0A))
             .border(1.dp, BorderSubtle, panelShape)
-            .padding(horizontal = 8.dp, vertical = 10.dp)
+            .padding(horizontal = 6.dp, vertical = 8.dp)
     ) {
         Text(
             text = label,
-            fontSize = 11.sp,
+            fontSize = (panelWidth.value * 0.12f).coerceIn(10f, 15f).sp,
             fontWeight = FontWeight.SemiBold,
             color = SubtleGray,
             letterSpacing = 2.sp,
-            modifier = Modifier.padding(bottom = 8.dp)
+            maxLines = 1,
+            softWrap = false
         )
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ScoreboardDigitCell(
@@ -165,55 +176,84 @@ private fun ScoreboardDigitCell(
     fontSize: TextUnit,
     modifier: Modifier = Modifier
 ) {
-    val cellShape = RoundedCornerShape(8.dp)
+    val cellShape = RoundedCornerShape((cellWidth.value * 0.16f).coerceIn(6f, 14f).dp)
 
     Box(
         modifier = modifier
             .size(width = cellWidth, height = cellHeight)
             .clip(cellShape)
             .background(Color(0xFF141414))
-            .border(1.dp, Color(0xFF262626), cellShape),
+            .border(1.dp, BorderSubtle, cellShape),
         contentAlignment = Alignment.Center
     ) {
-        // Vertical odometer roll animation only for changed digits
         AnimatedContent(
             targetState = digit,
             transitionSpec = {
-                (slideInVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) { height -> -height } +
-                    fadeIn(animationSpec = tween(200))) togetherWith
-                (slideOutVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) { height -> height } +
-                    fadeOut(animationSpec = tween(180)))
+                (slideInVertically(
+                    animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                    initialOffsetY = { -it }
+                ) + fadeIn(animationSpec = tween(280))).togetherWith(
+                    slideOutVertically(
+                        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                        targetOffsetY = { it }
+                    ) + fadeOut(animationSpec = tween(280))
+                )
             },
-            label = "ScoreboardDigitRoll"
-        ) { activeDigit ->
+            label = "ScoreboardRollAnimation"
+        ) { targetDigit ->
             Text(
-                text = activeDigit.toString(),
+                text = targetDigit.toString(),
                 fontSize = fontSize,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Light,
-                color = PureWhite
+                color = PureWhite,
+                maxLines = 1,
+                softWrap = false
             )
         }
 
-        // Horizontal split line across the center of each digit cell
         HorizontalDivider(
-            color = Color(0xFF000000),
-            thickness = 1.5.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Center),
+            thickness = 0.5.dp,
+            color = Color(0x33000000)
         )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "ThreeBox Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun ThreeBoxTimerThemePreview() {
+private fun ThreeBoxTimerThemePortraitPreview() {
     ValueTimerTheme {
-        Box(modifier = Modifier.size(360.dp)) {
-            ThreeBoxTimerTheme(
-                remainingMillis = 1845000L,
-                totalMillis = 3600000L,
-                status = TimerStatus.Running
-            )
-        }
+        ThreeBoxTimerTheme(
+            remainingMillis = 3725000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "ThreeBox Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun ThreeBoxTimerThemeLandscapePreview() {
+    ValueTimerTheme {
+        ThreeBoxTimerTheme(
+            remainingMillis = 3725000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "ThreeBox Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Composable
+private fun ThreeBoxTimerThemeTabletPreview() {
+    ValueTimerTheme {
+        ThreeBoxTimerTheme(
+            remainingMillis = 3725000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
     }
 }

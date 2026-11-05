@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -31,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.TimerStatus
@@ -41,9 +45,9 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 2: Hourglass.
- * Line-drawn glass container with sand draining from the top chamber to the bottom chamber.
- * A continuous falling stream runs through the neck while running, freezing/disappearing when paused.
- * Preallocates all Path objects outside the draw loop for allocation-free 60fps rendering.
+ * Line-drawn glass container with sand draining from top to bottom chamber.
+ * Fills height in landscape with digits beside it, or displays stacked in portrait.
+ * Preallocates Path objects outside draw loop for allocation-free 60fps rendering.
  */
 @Composable
 fun HourglassTimerTheme(
@@ -54,6 +58,7 @@ fun HourglassTimerTheme(
 ) {
     val progress = ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
     val isRunning = status == TimerStatus.Running && remainingMillis > 0L
+    val isPaused = status == TimerStatus.Paused
 
     // Digits update only once per second via derived state
     val displayedSeconds by remember(remainingMillis) {
@@ -66,8 +71,11 @@ fun HourglassTimerTheme(
             TimeUtils.formatHmsFromSeconds(displayedSeconds)
         }
     }
+    val totalTimeFormatted = remember(totalMillis) {
+        TimeUtils.formatHms(totalMillis)
+    }
 
-    // Preallocated Path objects to prevent per-frame garbage collection
+    // Preallocated Path objects
     val glassPath = remember { Path() }
     val topSandPath = remember { Path() }
     val bottomSandPath = remember { Path() }
@@ -93,28 +101,13 @@ fun HourglassTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val availableHeight = maxHeight.value
-        val availableWidth = maxWidth.value
-        val isLandscape = availableWidth > availableHeight * 1.3f
-
-        val hourglassHeight = if (isLandscape) {
-            (availableHeight * 0.55f).coerceIn(120f, 220f)
-        } else {
-            (availableHeight * 0.40f).coerceIn(140f, 240f)
-        }
-        val hourglassWidth = hourglassHeight * 0.62f
-        val fontSize = if (isLandscape) {
-            (availableHeight * 0.13f).coerceIn(24f, 44f).sp
-        } else {
-            (availableWidth * 0.10f).coerceIn(28f, 48f).sp
+        val dims = remember(maxWidth.value, maxHeight.value) {
+            AdaptiveLayoutHelper.calculateHourglassDimensions(maxWidth.value, maxHeight.value)
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        val hourglassCanvas = @Composable {
             Canvas(
-                modifier = Modifier.size(width = hourglassWidth.dp, height = hourglassHeight.dp)
+                modifier = Modifier.size(width = dims.width.dp, height = dims.height.dp)
             ) {
                 val w = size.width
                 val h = size.height
@@ -140,7 +133,7 @@ fun HourglassTimerTheme(
                     cap = StrokeCap.Round
                 )
 
-                // 2. Glass outline (reuse glassPath without allocating new objects)
+                // 2. Glass outline
                 glassPath.reset()
                 glassPath.moveTo(0f, 0f)
                 glassPath.cubicTo(
@@ -208,7 +201,7 @@ fun HourglassTimerTheme(
                     drawPath(bottomSandPath, color = PureWhite)
                 }
 
-                // 5. Falling sand stream through the neck
+                // 5. Falling sand stream through neck
                 if (isRunning && progress > 0.01f) {
                     val sandBottomTopY = h - (bulbHeight * (1f - progress))
                     drawLine(
@@ -220,32 +213,97 @@ fun HourglassTimerTheme(
                     )
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(28.dp))
+        val digitsContent = @Composable {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = formattedTime,
+                    fontSize = dims.fontSize.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Light,
+                    color = PureWhite,
+                    letterSpacing = 2.sp,
+                    maxLines = 1,
+                    softWrap = false
+                )
 
-            // Centered remaining digits (recomposes once per second)
-            Text(
-                text = formattedTime,
-                fontSize = fontSize,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Light,
-                color = PureWhite,
-                letterSpacing = 2.sp
-            )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted",
+                    fontSize = (dims.fontSize * 0.28f).coerceIn(10f, 16f).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = SubtleGray,
+                    letterSpacing = 2.sp,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        }
+
+        if (dims.isRowLayout) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                hourglassCanvas()
+                digitsContent()
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                hourglassCanvas()
+                Spacer(modifier = Modifier.height(24.dp))
+                digitsContent()
+            }
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "Hourglass Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun HourglassTimerThemePreview() {
+private fun HourglassTimerThemePortraitPreview() {
     ValueTimerTheme {
-        Box(modifier = Modifier.size(360.dp)) {
-            HourglassTimerTheme(
-                remainingMillis = 180000L,
-                totalMillis = 360000L,
-                status = TimerStatus.Running
-            )
-        }
+        HourglassTimerTheme(
+            remainingMillis = 180000L,
+            totalMillis = 360000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Hourglass Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun HourglassTimerThemeLandscapePreview() {
+    ValueTimerTheme {
+        HourglassTimerTheme(
+            remainingMillis = 180000L,
+            totalMillis = 360000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Hourglass Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Composable
+private fun HourglassTimerThemeTabletPreview() {
+    ValueTimerTheme {
+        HourglassTimerTheme(
+            remainingMillis = 180000L,
+            totalMillis = 360000L,
+            status = TimerStatus.Running
+        )
     }
 }

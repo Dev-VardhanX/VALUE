@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.TimerStatus
@@ -41,10 +42,9 @@ import kotlin.math.sin
 
 /**
  * Theme 6: Liquid Fill.
- * A rounded vessel container whose white liquid level lowers as time counts down,
- * with a subtle sinusoidal wave on the surface.
- * Digits dynamically invert colors on overlap with the liquid.
- * Preallocates the wave Path object outside the draw loop for 60fps allocation-free rendering.
+ * Wide rounded container in landscape, tall in portrait, whose white liquid level lowers as time counts down.
+ * Features a subtle sinusoidal wave on the surface with inverted digits on overlap.
+ * Preallocates Path outside draw loop for 60fps rendering.
  */
 @Composable
 fun LiquidFillTimerTheme(
@@ -91,11 +91,15 @@ fun LiquidFillTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val containerWidth = minOf(maxWidth * 0.85f, 320.dp)
-        val containerHeight = minOf(maxHeight * 0.55f, 320.dp, containerWidth * 1.15f)
-        val cornerRadius = 24.dp
+        val dims = remember(maxWidth.value, maxHeight.value) {
+            AdaptiveLayoutHelper.calculateLiquidFillDimensions(maxWidth.value, maxHeight.value)
+        }
+
+        val containerWidth = dims.containerWidth.dp
+        val containerHeight = dims.containerHeight.dp
+        val cornerRadius = (containerHeight.value * 0.12f).coerceIn(16f, 32f).dp
         val shape = RoundedCornerShape(cornerRadius)
-        val fontSize = (containerWidth.value * 0.14f).coerceIn(26f, 48f).sp
+        val fontSize = dims.fontSize.sp
 
         Box(
             modifier = Modifier
@@ -115,7 +119,9 @@ fun LiquidFillTimerTheme(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Light,
                     color = PureWhite,
-                    letterSpacing = 2.sp
+                    letterSpacing = 2.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
 
@@ -129,7 +135,7 @@ fun LiquidFillTimerTheme(
                             val h = size.height
                             val baseSurfaceY = h * (1f - progress)
                             val amplitude = if (progress in 0.02f..0.98f) 7.dp.toPx() else 0f
-                            val waveLength = w * 0.8f
+                            val waveLength = w * 0.7f
 
                             liquidPath.reset()
                             liquidPath.moveTo(0f, h)
@@ -148,7 +154,7 @@ fun LiquidFillTimerTheme(
                             liquidPath.close()
 
                             clipPath(liquidPath) {
-                                drawPath(liquidPath, color = PureWhite)
+                                drawRect(color = PureWhite)
                                 this@drawWithContent.drawContent()
                             }
                         },
@@ -160,7 +166,9 @@ fun LiquidFillTimerTheme(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Light,
                         color = PureBlack,
-                        letterSpacing = 2.sp
+                        letterSpacing = 2.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -168,16 +176,38 @@ fun LiquidFillTimerTheme(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "LiquidFill Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun LiquidFillTimerThemePreview() {
+private fun LiquidFillTimerThemePortraitPreview() {
     ValueTimerTheme {
-        Box(modifier = Modifier.size(360.dp)) {
-            LiquidFillTimerTheme(
-                remainingMillis = 145000L,
-                totalMillis = 300000L,
-                status = TimerStatus.Running
-            )
-        }
+        LiquidFillTimerTheme(
+            remainingMillis = 65000L,
+            totalMillis = 120000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "LiquidFill Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun LiquidFillTimerThemeLandscapePreview() {
+    ValueTimerTheme {
+        LiquidFillTimerTheme(
+            remainingMillis = 65000L,
+            totalMillis = 120000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "LiquidFill Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Composable
+private fun LiquidFillTimerThemeTabletPreview() {
+    ValueTimerTheme {
+        LiquidFillTimerTheme(
+            remainingMillis = 65000L,
+            totalMillis = 120000L,
+            status = TimerStatus.Running
+        )
     }
 }

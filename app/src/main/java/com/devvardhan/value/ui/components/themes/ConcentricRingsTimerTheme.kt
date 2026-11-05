@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.TimerStatus
@@ -36,7 +37,8 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 4: Concentric Rings.
  * Three thin concentric rings for Hours (outer), Minutes (middle), and Seconds (inner).
- * Zero allocations in draw lambda for optimal 60fps performance.
+ * Adapts with square-fit sizing in portrait, landscape, and tablet, guaranteeing digits
+ * always fit inside the inner ring without overlap.
  */
 @Composable
 fun ConcentricRingsTimerTheme(
@@ -65,10 +67,18 @@ fun ConcentricRingsTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val diameter = minOf(maxWidth * 0.88f, maxHeight * 0.72f, 320.dp)
-        val strokeWidth = (diameter.value * 0.015f).coerceIn(2.5f, 4.5f).dp
-        val ringGap = (diameter.value * 0.055f).coerceIn(12f, 18f).dp
-        val fontSize = (diameter.value * 0.125f).coerceIn(22f, 42f).sp
+        val geometry = remember(maxWidth.value, maxHeight.value) {
+            AdaptiveLayoutHelper.calculateConcentricRingsGeometry(
+                width = maxWidth.value,
+                height = maxHeight.value,
+                padding = 32f
+            )
+        }
+
+        val diameter = geometry.diameter.dp
+        val strokeWidth = geometry.strokeWidth.dp
+        val ringGap = geometry.ringGap.dp
+        val fontSize = geometry.maxFontSize.sp
 
         Box(
             modifier = Modifier.size(diameter),
@@ -80,8 +90,8 @@ fun ConcentricRingsTimerTheme(
                 val gapPx = ringGap.toPx()
 
                 val outerRadius = (size.width / 2f) - strokePx
-                val middleRadius = outerRadius - gapPx
-                val innerRadius = middleRadius - gapPx
+                val middleRadius = (outerRadius - gapPx).coerceAtLeast(10f)
+                val innerRadius = (middleRadius - gapPx).coerceAtLeast(10f)
 
                 // Outer ring (Hours)
                 if (outerRadius > 0f) {
@@ -165,7 +175,7 @@ fun ConcentricRingsTimerTheme(
                 }
             }
 
-            // Centered remaining time (recomposes once per second)
+            // Centered remaining time (positioned inside inner ring)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -176,17 +186,21 @@ fun ConcentricRingsTimerTheme(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Light,
                     color = PureWhite,
-                    letterSpacing = 1.5.sp
+                    letterSpacing = 1.5.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
 
                 if (isPaused) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "PAUSED",
-                        fontSize = 10.sp,
+                        fontSize = (fontSize.value * 0.30f).coerceIn(9f, 14f).sp,
                         fontWeight = FontWeight.Medium,
                         color = SubtleGray,
-                        letterSpacing = 2.sp
+                        letterSpacing = 2.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -194,16 +208,38 @@ fun ConcentricRingsTimerTheme(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "Concentric Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun ConcentricRingsTimerThemePreview() {
+private fun ConcentricRingsTimerThemePortraitPreview() {
     ValueTimerTheme {
-        Box(modifier = Modifier.size(360.dp)) {
-            ConcentricRingsTimerTheme(
-                remainingMillis = 5420000L,
-                totalMillis = 7200000L,
-                status = TimerStatus.Running
-            )
-        }
+        ConcentricRingsTimerTheme(
+            remainingMillis = 5420000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Concentric Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun ConcentricRingsTimerThemeLandscapePreview() {
+    ValueTimerTheme {
+        ConcentricRingsTimerTheme(
+            remainingMillis = 5420000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Concentric Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Composable
+private fun ConcentricRingsTimerThemeTabletPreview() {
+    ValueTimerTheme {
+        ConcentricRingsTimerTheme(
+            remainingMillis = 5420000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
     }
 }

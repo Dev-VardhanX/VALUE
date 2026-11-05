@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.ui.theme.DarkGray
@@ -44,8 +45,9 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 5: Flip Clock.
- * Classic split-flap cards for Hours, Minutes, and Seconds with a thin center divider line
+ * Classic split-flap cards for Hours, Minutes, and Seconds with a center divider line
  * and smooth 3D rotation flip animations when digits change.
+ * Expands across available width and height dynamically.
  */
 @Composable
 fun FlipClockTimerTheme(
@@ -67,23 +69,19 @@ fun FlipClockTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val availableWidth = maxWidth.value
-        val availableHeight = maxHeight.value
+        val dims = remember(maxWidth.value, maxHeight.value) {
+            AdaptiveLayoutHelper.calculateFlipClockDimensions(maxWidth.value, maxHeight.value)
+        }
 
-        // Card width sizing: 6 digit cards + 2 colons + margins
-        val cardWidth = minOf(
-            (availableWidth - 80f) / 7.2f,
-            availableHeight * 0.28f,
-            58f
-        ).coerceIn(34f, 62f).dp
-
-        val cardHeight = cardWidth * 1.45f
-        val fontSize = (cardHeight.value * 0.60f).coerceIn(24f, 54f).sp
+        val cardWidth = dims.cardWidth.dp
+        val cardHeight = dims.cardHeight.dp
+        val fontSize = dims.fontSize.sp
+        val spacing = (cardWidth.value * 0.08f).coerceIn(3f, 8f).dp
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp)
+            modifier = Modifier.padding(horizontal = 8.dp)
         ) {
             // Hours
             FlipDigitCard(digit = hStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
@@ -118,92 +116,111 @@ private fun FlipDigitCard(
     LaunchedEffect(digit) {
         if (digit != displayedDigit) {
             previousDigit = displayedDigit
-            displayedDigit = digit
             flipAnimation.snapTo(0f)
             flipAnimation.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
             )
+            displayedDigit = digit
+            flipAnimation.snapTo(0f)
         }
     }
 
-    val progress = flipAnimation.value
-    val isFirstHalf = progress < 0.5f
-    val rotationX = if (isFirstHalf) {
-        progress * 180f
-    } else {
-        (progress - 1f) * 180f
-    }
-    val activeChar = if (isFirstHalf) previousDigit else displayedDigit
+    val cardShape = RoundedCornerShape((width.value * 0.14f).coerceIn(6f, 16f).dp)
+    val rotation = flipAnimation.value * 180f
+    val currentShowing = if (rotation < 90f) previousDigit else digit
 
     Box(
         modifier = Modifier
             .size(width = width, height = height)
             .graphicsLayer {
-                this.rotationX = rotationX
+                rotationX = if (rotation < 90f) -rotation else (180f - rotation)
                 cameraDistance = 16f * density
             }
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF141414))
-            .border(1.dp, Color(0xFF2E2E2E), RoundedCornerShape(8.dp)),
+            .clip(cardShape)
+            .background(Color(0xFF0F0F0F))
+            .border(1.dp, Color(0xFF262626), cardShape),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = activeChar.toString(),
+            text = currentShowing.toString(),
             fontSize = fontSize,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Medium,
-            color = PureWhite
+            color = PureWhite,
+            maxLines = 1,
+            softWrap = false
         )
 
-        // Split-flap center divider line
         HorizontalDivider(
-            color = Color(0xFF000000),
-            thickness = 1.5.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Center),
+            thickness = 1.dp,
+            color = Color(0xFF000000)
         )
     }
 }
 
 @Composable
 private fun FlipColon(height: Dp) {
-    Box(
+    val colonSize = (height.value * 0.055f).coerceIn(4f, 10f).dp
+    Column(
         modifier = Modifier
             .height(height)
-            .padding(horizontal = 3.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = (colonSize.value * 0.5f).dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(4.5.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(SubtleGray)
-            )
-            Box(
-                modifier = Modifier
-                    .size(4.5.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(SubtleGray)
-            )
-        }
+        Box(
+            modifier = Modifier
+                .size(colonSize)
+                .background(SubtleGray, RoundedCornerShape(2.dp))
+        )
+        Box(
+            modifier = Modifier
+                .height((height.value * 0.18f).coerceIn(12f, 28f).dp)
+        )
+        Box(
+            modifier = Modifier
+                .size(colonSize)
+                .background(SubtleGray, RoundedCornerShape(2.dp))
+        )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "FlipClock Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun FlipClockTimerThemePreview() {
+private fun FlipClockTimerThemePortraitPreview() {
     ValueTimerTheme {
-        Box(modifier = Modifier.size(360.dp)) {
-            FlipClockTimerTheme(
-                remainingMillis = 1845000L,
-                totalMillis = 3600000L,
-                status = TimerStatus.Running
-            )
-        }
+        FlipClockTimerTheme(
+            remainingMillis = 59000L,
+            totalMillis = 60000L,
+            status = TimerStatus.Running
+        )
     }
 }
 
+@Preview(name = "FlipClock Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun FlipClockTimerThemeLandscapePreview() {
+    ValueTimerTheme {
+        FlipClockTimerTheme(
+            remainingMillis = 59000L,
+            totalMillis = 60000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "FlipClock Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Composable
+private fun FlipClockTimerThemeTabletPreview() {
+    ValueTimerTheme {
+        FlipClockTimerTheme(
+            remainingMillis = 59000L,
+            totalMillis = 60000L,
+            status = TimerStatus.Running
+        )
+    }
+}

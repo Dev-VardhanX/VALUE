@@ -29,6 +29,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    androidResources {
+        localeFilters += listOf("en")
+    }
+
     signingConfigs {
         create("release") {
             if (hasKeystore) {
@@ -74,6 +78,15 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        resources {
+            excludes += listOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/*.version"
+            )
+        }
+    }
 }
 
 dependencies {
@@ -87,7 +100,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.datastore.preferences)
 
     testImplementation(libs.junit)

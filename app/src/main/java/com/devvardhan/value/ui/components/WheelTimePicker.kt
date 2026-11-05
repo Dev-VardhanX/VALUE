@@ -19,9 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -174,7 +171,7 @@ private fun WheelColumn(
             modifier = Modifier.size(36.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Add,
+                imageVector = AppIcons.Add,
                 contentDescription = "Increment $label",
                 tint = SubtleGray,
                 modifier = Modifier.size(18.dp)
@@ -248,7 +245,7 @@ private fun WheelColumn(
             modifier = Modifier.size(36.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Remove,
+                imageVector = AppIcons.Remove,
                 contentDescription = "Decrement $label",
                 tint = SubtleGray,
                 modifier = Modifier.size(18.dp)

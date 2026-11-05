@@ -27,8 +27,9 @@ import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
- * Theme 1: Circle (existing).
+ * Theme 1: Circle.
  * Clean, minimal circular progress ring with centered monospaced countdown digits.
+ * Scales dynamically to min(width, height) - padding in portrait, landscape, and tablet.
  */
 @Composable
 fun CircleTimerTheme(
@@ -46,9 +47,9 @@ fun CircleTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val diameter = minOf(maxWidth * 0.85f, maxHeight * 0.70f, 320.dp)
-        val strokeWidth = (diameter.value * 0.012f).coerceIn(2.5f, 4.5f).dp
-        val fontSize = (diameter.value * 0.145f).coerceIn(28f, 52f).sp
+        val diameter = (minOf(maxWidth, maxHeight) - 32.dp).coerceAtLeast(120.dp)
+        val strokeWidth = (diameter.value * 0.014f).coerceIn(2.5f, 6.5f).dp
+        val fontSize = (diameter.value * 0.16f).coerceIn(24f, 84f).sp
 
         MinimalCircularProgress(
             progress = progress,
@@ -65,35 +66,60 @@ fun CircleTimerTheme(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Light,
                     color = PureWhite,
-                    letterSpacing = 2.sp
+                    letterSpacing = 2.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height((diameter.value * 0.025f).coerceIn(4f, 16f).dp))
 
                 Text(
                     text = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted",
-                    fontSize = 11.sp,
+                    fontSize = (diameter.value * 0.04f).coerceIn(10f, 16f).sp,
                     fontWeight = FontWeight.Medium,
                     color = SubtleGray,
                     letterSpacing = 2.sp,
-                    modifier = Modifier.alpha(if (isPaused) 1.0f else 0.7f)
+                    modifier = Modifier.alpha(if (isPaused) 1.0f else 0.7f),
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "Circle Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun CircleTimerThemePreview() {
+private fun CircleTimerThemePortraitPreview() {
     ValueTimerTheme {
-        Box(modifier = Modifier.size(360.dp)) {
-            CircleTimerTheme(
-                remainingMillis = 125000L,
-                totalMillis = 300000L,
-                status = TimerStatus.Running
-            )
-        }
+        CircleTimerTheme(
+            remainingMillis = 125000L,
+            totalMillis = 300000L,
+            status = TimerStatus.Running
+        )
     }
 }
 
+@Preview(name = "Circle Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun CircleTimerThemeLandscapePreview() {
+    ValueTimerTheme {
+        CircleTimerTheme(
+            remainingMillis = 125000L,
+            totalMillis = 300000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Circle Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Composable
+private fun CircleTimerThemeTabletPreview() {
+    ValueTimerTheme {
+        CircleTimerTheme(
+            remainingMillis = 125000L,
+            totalMillis = 300000L,
+            status = TimerStatus.Running
+        )
+    }
+}

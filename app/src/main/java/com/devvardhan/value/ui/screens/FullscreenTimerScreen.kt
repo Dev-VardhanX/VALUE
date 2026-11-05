@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -33,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -40,15 +39,17 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.devvardhan.value.R
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.model.TimerTheme
+import com.devvardhan.value.ui.components.AppIcons
 import com.devvardhan.value.ui.components.TimerVisual
 import com.devvardhan.value.ui.components.rememberCountdownRemainingMillis
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
+import com.devvardhan.value.ui.theme.ValueTimerTheme
 import kotlinx.coroutines.delay
 
 /**
  * Screen 3: Fullscreen Mode.
- * Immersive sticky mode displaying the selected theme visual scaled to the screen bounds.
+ * Immersive sticky mode displaying the selected theme visual scaled to the screen bounds on pure black.
  * Driven by the decoupled 60fps frame clock.
  */
 @Composable
@@ -64,19 +65,19 @@ fun FullscreenTimerScreen(
     val context = LocalContext.current
     var showExitIcon by remember { mutableStateOf(false) }
 
-    // High performance frame clock
+    // High performance frame clock for smooth 60fps visual updates
     val liveRemainingMillis by rememberCountdownRemainingMillis(
         status = status,
         targetEndTime = targetEndTime,
         pausedRemainingMillis = pausedRemainingMillis
     )
 
-    // Intercept back gesture to exit fullscreen
+    // Handle back button to exit fullscreen
     BackHandler {
         onExitFullscreen()
     }
 
-    // Auto-hide the exit icon after 2 seconds
+    // Auto-hide exit button after 2 seconds
     LaunchedEffect(showExitIcon) {
         if (showExitIcon) {
             delay(2000L)
@@ -115,13 +116,15 @@ fun FullscreenTimerScreen(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Active visual scaled to the full viewport
+        // Active visual scaled to the full viewport with safe minimal margins
         TimerVisual(
             theme = theme,
             remainingMillis = liveRemainingMillis,
             totalMillis = totalMillis,
             status = status,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         )
 
         // Exit fullscreen icon button (auto-hides after 2 seconds)
@@ -141,7 +144,7 @@ fun FullscreenTimerScreen(
                     .semantics { contentDescription = "Exit fullscreen mode" }
             ) {
                 Icon(
-                    imageVector = Icons.Default.FullscreenExit,
+                    imageVector = AppIcons.FullscreenExit,
                     contentDescription = stringResource(R.string.action_exit_fullscreen),
                     tint = PureWhite,
                     modifier = Modifier.size(28.dp)
@@ -158,4 +161,34 @@ private fun Context.findActivity(): Activity? {
         current = current.baseContext
     }
     return null
+}
+
+@Preview(name = "Fullscreen Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Composable
+private fun FullscreenTimerScreenPortraitPreview() {
+    ValueTimerTheme {
+        FullscreenTimerScreen(
+            theme = TimerTheme.CIRCLE,
+            targetEndTime = System.currentTimeMillis() + 120000L,
+            pausedRemainingMillis = 120000L,
+            totalMillis = 300000L,
+            status = TimerStatus.Running,
+            onExitFullscreen = {}
+        )
+    }
+}
+
+@Preview(name = "Fullscreen Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun FullscreenTimerScreenLandscapePreview() {
+    ValueTimerTheme {
+        FullscreenTimerScreen(
+            theme = TimerTheme.CIRCLE,
+            targetEndTime = System.currentTimeMillis() + 120000L,
+            pausedRemainingMillis = 120000L,
+            totalMillis = 300000L,
+            status = TimerStatus.Running,
+            onExitFullscreen = {}
+        )
+    }
 }
