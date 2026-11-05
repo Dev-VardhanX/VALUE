@@ -1,3 +1,24 @@
 <resources>
     <string name="app_name">VALUE</string>
+    <string name="set_timer_title">Set Timer</string>
+    <string name="action_start">Start</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_fullscreen">Fullscreen</string>
+    <string name="action_exit_fullscreen">Exit Fullscreen</string>
+    <string name="action_change_theme">Change Theme</string>
+    <string name="times_up">TIME\'S UP</string>
+    <string name="notification_channel_ongoing_name">Timer Countdown</string>
+    <string name="notification_channel_ongoing_desc">Shows active countdown timer progress</string>
+    <string name="notification_channel_alarm_name">Timer Alarm</string>
+    <string name="notification_channel_alarm_desc">Notifies when the timer finishes</string>
+    <string name="notification_running_title">VALUE Timer</string>
+    <string name="notification_finished_title">Time\'s up!</string>
+    <string name="notification_finished_content">Timer completed</string>
+    <string name="label_hours">HOURS</string>
+    <string name="label_minutes">MINUTES</string>
+    <string name="label_seconds">SECONDS</string>
+    <string name="choose_theme">CHOOSE THEME</string>
 </resources>
