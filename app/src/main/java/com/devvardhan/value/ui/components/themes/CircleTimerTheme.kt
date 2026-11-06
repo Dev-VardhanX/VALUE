@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -82,12 +83,13 @@ fun CircleTimerTheme(
         val diameter = (availableDiameter - if (layoutMode == ThemeLayoutMode.PORTRAIT) 16f else 28f).coerceAtLeast(90f).dp
         val strokeWidth = (diameter.value * 0.015f).coerceIn(2.5f, 6.5f).dp
         val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
-        val innerDiameter = diameter.value - (strokeWidth.value * 2f)
+        val innerRadius = (diameter.value - (strokeWidth.value * 2f)) / 2f
 
-        val fontSize = CellSizeHelper.calculateInnerRingFontSize(
-            innerDiameter = innerDiameter,
+        val fontSize = CellSizeHelper.calculateInnerRingSafeFontSize(
+            innerRadius = innerRadius,
             hasHours = hasHours,
-            isStopwatch = isStopwatch
+            isStopwatch = isStopwatch,
+            hasLabel = false
         ).sp
 
         MinimalCircularProgress(
@@ -113,7 +115,9 @@ fun CircleTimerTheme(
                                 fontWeight = FontWeight.Light,
                                 fontSize = fontSize,
                                 letterSpacing = if (hasHours) 0.5.sp else 1.sp,
-                                fontFeatureSettings = "tnum"
+                                fontFeatureSettings = "tnum",
+                                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                                lineHeight = fontSize
                             ),
                             color = PureWhite,
                             maxLines = 1,
@@ -122,7 +126,7 @@ fun CircleTimerTheme(
                         Spacer(modifier = Modifier.width(2.dp))
                         CentisecondsSlot(
                             elapsedMillis = stopwatchElapsedMillis,
-                            fontSize = (fontSize.value * 0.40f).coerceIn(10f, 26f).sp,
+                            fontSize = (fontSize.value * 0.40f).sp,
                             modifier = Modifier.padding(bottom = (fontSize.value * 0.06f).dp)
                         )
                     }
@@ -133,8 +137,10 @@ fun CircleTimerTheme(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Light,
                             fontSize = fontSize,
-                            letterSpacing = if (hasHours) 0.5.sp else 1.sp,
-                            fontFeatureSettings = "tnum"
+                            letterSpacing = 0.5.sp,
+                            fontFeatureSettings = "tnum",
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                            lineHeight = fontSize
                         ),
                         color = PureWhite,
                         maxLines = 1,

@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -121,12 +122,17 @@ fun ConcentricRingsTimerTheme(
         val strokeWidth = geometry.strokeWidth.dp
         val ringGap = geometry.ringGap.dp
         val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
+        val hasLabel = isPaused || (!isStopwatch)
+        val clearInnerRadius = geometry.innerDiameter / 2f
 
-        val fontSize = CellSizeHelper.calculateInnerRingFontSize(
-            innerDiameter = geometry.innerDiameter,
-            hasHours = hasHours,
-            isStopwatch = isStopwatch
-        ).sp
+        val fontSize = remember(clearInnerRadius, hasHours, isStopwatch, hasLabel) {
+            CellSizeHelper.calculateInnerRingSafeFontSize(
+                innerRadius = clearInnerRadius,
+                hasHours = hasHours,
+                isStopwatch = isStopwatch,
+                hasLabel = hasLabel
+            )
+        }.sp
 
         Box(
             modifier = Modifier.size(diameter),
@@ -244,7 +250,9 @@ fun ConcentricRingsTimerTheme(
                                 fontWeight = FontWeight.Light,
                                 fontSize = fontSize,
                                 letterSpacing = if (hasHours) 0.5.sp else 1.sp,
-                                fontFeatureSettings = "tnum"
+                                fontFeatureSettings = "tnum",
+                                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                                lineHeight = fontSize
                             ),
                             color = PureWhite,
                             maxLines = 1,
@@ -253,8 +261,22 @@ fun ConcentricRingsTimerTheme(
                         Spacer(modifier = Modifier.width(2.dp))
                         CentisecondsSlot(
                             elapsedMillis = stopwatchElapsedMillis,
-                            fontSize = (fontSize.value * 0.40f).coerceIn(10f, 22f).sp,
+                            fontSize = (fontSize.value * 0.40f).sp,
                             modifier = Modifier.padding(bottom = (fontSize.value * 0.06f).dp)
+                        )
+                    }
+
+                    if (isPaused) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "PAUSED",
+                            fontSize = (fontSize.value * 0.28f).coerceIn(9f, 13f).sp,
+                            fontWeight = FontWeight.Medium,
+                            color = SubtleGray,
+                            letterSpacing = 1.5.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
                         )
                     }
                 } else {
@@ -264,25 +286,27 @@ fun ConcentricRingsTimerTheme(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Light,
                             fontSize = fontSize,
-                            letterSpacing = if (hasHours) 0.5.sp else 1.sp,
-                            fontFeatureSettings = "tnum"
+                            letterSpacing = 0.5.sp,
+                            fontFeatureSettings = "tnum",
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                            lineHeight = fontSize
                         ),
                         color = PureWhite,
                         maxLines = 1,
                         softWrap = false
                     )
-                }
 
-                if (isPaused) {
                     Spacer(modifier = Modifier.height(2.dp))
+                    val subText = if (isPaused) "PAUSED" else "TOTAL ${TimeUtils.formatHms(totalMillis)}"
                     Text(
-                        text = "PAUSED",
-                        fontSize = (geometry.innerDiameter * 0.08f).coerceIn(9f, 12f).sp,
+                        text = subText,
+                        fontSize = (fontSize.value * 0.25f).coerceIn(8f, 12f).sp,
                         fontWeight = FontWeight.Medium,
                         color = SubtleGray,
                         letterSpacing = 1.5.sp,
                         maxLines = 1,
-                        softWrap = false
+                        softWrap = false,
+                        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
                     )
                 }
             }

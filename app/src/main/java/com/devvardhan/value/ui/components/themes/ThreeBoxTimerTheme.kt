@@ -29,7 +29,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +54,7 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 3: Three Box (Scoreboard).
  * Three split stadium scoreboard panels for Hours, Minutes, and Seconds.
- * Tabular monospace digits with exact mathematical cell sizing to prevent glyph clipping ("CC" bug).
+ * Tabular monospace digits with exact 1 : 1.6 tall cells and no glyph clipping.
  * In Stopwatch mode: centiseconds sit on the same baseline directly to the right of the seconds panel.
  */
 @Composable
@@ -97,7 +99,7 @@ fun ThreeBoxTimerTheme(
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 2.dp)
         ) {
             // Hours panel
@@ -110,6 +112,7 @@ fun ThreeBoxTimerTheme(
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
                 fontSize = fontSize,
+                dims = dims,
                 countUp = isStopwatch
             )
 
@@ -125,6 +128,7 @@ fun ThreeBoxTimerTheme(
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
                 fontSize = fontSize,
+                dims = dims,
                 countUp = isStopwatch
             )
 
@@ -140,6 +144,7 @@ fun ThreeBoxTimerTheme(
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
                 fontSize = fontSize,
+                dims = dims,
                 countUp = isStopwatch
             )
 
@@ -147,9 +152,9 @@ fun ThreeBoxTimerTheme(
                 // Centiseconds slot sits directly after the seconds panel, aligned to digit baseline
                 CentisecondsSlot(
                     elapsedMillis = stopwatchElapsedMillis,
-                    fontSize = (dims.fontSize * 0.40f).coerceIn(11f, 26f).sp,
+                    fontSize = (dims.fontSize * 0.40f).sp,
                     fixedWidthDp = dims.centisSlotWidth.dp,
-                    modifier = Modifier.padding(bottom = (dims.panelHeight * 0.12f).dp)
+                    modifier = Modifier.padding(bottom = (dims.cellHeight * 0.08f).dp)
                 )
             }
         }
@@ -166,11 +171,15 @@ private fun ScoreboardColon(panelHeight: Dp, fontSize: TextUnit, colonWidth: Dp)
     ) {
         Text(
             text = ":",
-            fontSize = fontSize * 0.65f,
+            fontSize = fontSize * 0.70f,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Light,
             color = SubtleGray,
-            style = TextStyle(fontFeatureSettings = "tnum")
+            style = TextStyle(
+                fontFeatureSettings = "tnum",
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeight = fontSize * 0.70f
+            )
         )
     }
 }
@@ -185,10 +194,11 @@ private fun ScoreboardPanel(
     cellWidth: Dp,
     cellHeight: Dp,
     fontSize: TextUnit,
+    dims: CellSizeHelper.ThreeBoxCellDimensions,
     countUp: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val panelShape = RoundedCornerShape((panelWidth.value * 0.12f).coerceIn(8f, 18f).dp)
+    val panelShape = RoundedCornerShape((panelWidth.value * 0.12f).coerceIn(6f, 16f).dp)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -197,28 +207,34 @@ private fun ScoreboardPanel(
             .size(width = panelWidth, height = panelHeight)
             .background(Color(0xFF0A0A0A), panelShape)
             .border(1.dp, BorderSubtle, panelShape)
-            .padding(horizontal = 5.dp, vertical = 6.dp)
+            .padding(
+                horizontal = dims.panelPaddingHorizontal.dp,
+                vertical = dims.panelPaddingVertical.dp
+            )
     ) {
-        // Secondary unit label (small, letter-spaced, ~15-20% of digit size)
+        // Label row (small gray HRS/MIN/SEC)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(dims.labelRowHeight.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
-                fontSize = (fontSize.value * 0.20f).coerceIn(9f, 14f).sp,
+                fontSize = (dims.labelRowHeight * 0.70f).sp,
                 fontWeight = FontWeight.SemiBold,
                 color = SubtleGray,
-                letterSpacing = 2.sp,
+                letterSpacing = 1.5.sp,
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
             )
         }
 
-        // Mechanical score digits
+        // Two cells side by side
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(dims.innerCellGap.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ScoreboardDigitCell(
@@ -236,8 +252,6 @@ private fun ScoreboardPanel(
                 countUp = countUp
             )
         }
-
-        Spacer(modifier = Modifier.height(2.dp))
     }
 }
 
@@ -249,7 +263,7 @@ private fun ScoreboardDigitCell(
     fontSize: TextUnit,
     countUp: Boolean
 ) {
-    val cellShape = RoundedCornerShape(6.dp)
+    val cellShape = RoundedCornerShape((cellWidth.value * 0.15f).coerceIn(4f, 10f).dp)
 
     Box(
         modifier = Modifier
@@ -283,16 +297,26 @@ private fun ScoreboardDigitCell(
                     )
                 }
             },
+            modifier = Modifier.clipToBounds(),
             label = "DigitRoll"
         ) { currentDigit ->
-            Text(
-                text = currentDigit.toString(),
-                fontSize = fontSize,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Light,
-                color = PureWhite,
-                style = TextStyle(fontFeatureSettings = "tnum")
-            )
+            Box(
+                modifier = Modifier.size(width = cellWidth, height = cellHeight),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = currentDigit.toString(),
+                    fontSize = fontSize,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Light,
+                    color = PureWhite,
+                    style = TextStyle(
+                        fontFeatureSettings = "tnum",
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeight = fontSize
+                    )
+                )
+            }
         }
 
         // Mechanical scoreboard center split groove
@@ -307,6 +331,42 @@ private fun ScoreboardDigitCell(
 // -------------------------------------------------------------------------------------------------
 // PREVIEWS
 // -------------------------------------------------------------------------------------------------
+
+@Preview(name = "ThreeBox 120dp Width (Small Preview)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 120, heightDp = 80)
+@Composable
+private fun ThreeBox120dpPreview() {
+    ValueTimerTheme {
+        ThreeBoxTimerTheme(
+            remainingMillis = 3724000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "ThreeBox 200dp Width (Card Preview)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 200, heightDp = 133)
+@Composable
+private fun ThreeBox200dpPreview() {
+    ValueTimerTheme {
+        ThreeBoxTimerTheme(
+            remainingMillis = 3724000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "ThreeBox 360dp Width (Phone Portrait)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 240)
+@Composable
+private fun ThreeBox360dpPreview() {
+    ValueTimerTheme {
+        ThreeBoxTimerTheme(
+            remainingMillis = 3724000L,
+            totalMillis = 7200000L,
+            status = TimerStatus.Running
+        )
+    }
+}
 
 @Preview(name = "ThreeBox Stopwatch 360dp", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
 @Composable

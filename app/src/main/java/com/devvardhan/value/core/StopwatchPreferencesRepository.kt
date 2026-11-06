@@ -55,11 +55,11 @@ class StopwatchPreferencesRepository(private val context: Context) {
         try {
             if (raw != null) {
                 val theme = TimerTheme.valueOf(raw)
-                // Filter out themes not available for stopwatch
-                if (theme == TimerTheme.HOURGLASS || theme == TimerTheme.LIQUID_FILL) {
-                    TimerTheme.CIRCLE
-                } else {
+                // Filter out themes not available for stopwatch (e.g. DOT_GRID, HOURGLASS, LIQUID_FILL -> fallback to CIRCLE)
+                if (theme in TimerTheme.stopwatchThemes) {
                     theme
+                } else {
+                    TimerTheme.CIRCLE
                 }
             } else {
                 TimerTheme.CIRCLE

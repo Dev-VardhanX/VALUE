@@ -170,7 +170,6 @@ fun StyleGalleryScreen(
                 }
 
                 val cardHeight = (availableHeight - 64.dp).coerceAtLeast(180.dp)
-                val cardWidth = (cardHeight * 0.88f).coerceIn(210.dp, 320.dp)
 
                 LazyRow(
                     state = lazyListState,
@@ -184,6 +183,13 @@ fun StyleGalleryScreen(
                     itemsIndexed(themes, key = { _, item -> item.name }) { index, themeItem ->
                         val isSelected = themeItem == selectedTheme
                         val isCentered = centeredIndex == index
+                        val isWide = themeItem == TimerTheme.THREE_BOX || themeItem == TimerTheme.FLIP_CLOCK
+                        val cardWidth = if (isWide) {
+                            (cardHeight * 1.15f).coerceIn(260.dp, 420.dp)
+                        } else {
+                            (cardHeight * 0.88f).coerceIn(210.dp, 320.dp)
+                        }
+
                         StylePreviewCard(
                             theme = themeItem,
                             mode = mode,
@@ -259,20 +265,38 @@ private fun StylePreviewCard(
 ) {
     val isStopwatchMode = mode == AppMode.STOPWATCH
     val cardShape = RoundedCornerShape(22.dp)
+    val isWide = theme == TimerTheme.THREE_BOX || theme == TimerTheme.FLIP_CLOCK
+    val totalDemoDuration = if (isWide && !isStopwatchMode) 75_420_000L else 10_000L
 
-    // Demo clock looping over 10 seconds (countdown for timer, count-up for stopwatch)
-    var demoMillis by remember { mutableLongStateOf(if (isStopwatchMode) 3_500L else 7_200L) }
+    // Demo clock: For Three Box / Flip Clock, show HH:MM:SS with all six digits visible
+    var demoMillis by remember {
+        mutableLongStateOf(
+            if (isWide) {
+                if (isStopwatchMode) 3_665_000L else 37_240_000L
+            } else {
+                if (isStopwatchMode) 3_500L else 7_200L
+            }
+        )
+    }
 
-    LaunchedEffect(isAnimated) {
+    LaunchedEffect(isAnimated, isWide, isStopwatchMode) {
         if (!isAnimated) return@LaunchedEffect
         val startNano = System.nanoTime()
         while (true) {
             withFrameNanos { frameNano ->
                 val elapsed = (frameNano - startNano) / 1_000_000L
-                demoMillis = if (isStopwatchMode) {
-                    elapsed % 10_000L
+                demoMillis = if (isWide) {
+                    if (isStopwatchMode) {
+                        3_665_000L + (elapsed % 10_000L) // 01:01:05.xx to 01:01:15.xx (all 6 digits visible)
+                    } else {
+                        37_240_000L - (elapsed % 10_000L) // ~10h 20m 40s (all 6 digits visible)
+                    }
                 } else {
-                    10_000L - (elapsed % 10_000L)
+                    if (isStopwatchMode) {
+                        elapsed % 10_000L
+                    } else {
+                        10_000L - (elapsed % 10_000L)
+                    }
                 }
             }
         }
@@ -299,20 +323,28 @@ private fun StylePreviewCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Live Preview Display Area - Strictly 1:1 Square Box
+            // Live Preview Display Area - 1:1 for circular styles, 3:2 for wide styles (Three Box, Flip Clock)
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                val previewSize = minOf(maxWidth, maxHeight)
+                val targetAspect = if (isWide) 3f / 2f else 1f
+                val (boxWidth, boxHeight) = if (maxWidth / maxHeight > targetAspect) {
+                    val h = maxHeight * 0.92f // 8% margin
+                    Pair(h * targetAspect, h)
+                } else {
+                    val w = maxWidth * 0.92f // 8% margin
+                    Pair(w, w / targetAspect)
+                }
+
                 Box(
                     modifier = Modifier
-                        .size(previewSize)
+                        .size(width = boxWidth, height = boxHeight)
                         .clip(RoundedCornerShape(14.dp))
                         .background(PureBlack)
-                        .padding(8.dp),
+                        .padding(6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isStopwatchMode) {
@@ -326,7 +358,7 @@ private fun StylePreviewCard(
                         TimerVisual(
                             theme = theme,
                             remainingMillis = demoMillis,
-                            totalMillis = 10_000L,
+                            totalMillis = totalDemoDuration,
                             status = if (isAnimated) TimerStatus.Running else TimerStatus.Paused,
                             layoutMode = ThemeLayoutMode.PORTRAIT
                         )

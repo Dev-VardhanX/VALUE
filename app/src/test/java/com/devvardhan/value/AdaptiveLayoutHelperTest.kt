@@ -225,16 +225,16 @@ class AdaptiveLayoutHelperTest {
         assertTrue(timerStyles.contains(TimerTheme.LIQUID_FILL))
         assertTrue(timerStyles.contains(TimerTheme.DOT_GRID))
 
-        // Stopwatch mode shows only 5 styles (no Hourglass, no Liquid Fill)
+        // Stopwatch mode shows only 4 styles (Circle, Concentric Rings, Three Box, Flip Clock)
         val stopwatchStyles = AdaptiveLayoutHelper.getGalleryStyles(AppMode.STOPWATCH)
-        assertEquals(5, stopwatchStyles.size)
+        assertEquals(4, stopwatchStyles.size)
         assertTrue(stopwatchStyles.contains(TimerTheme.CIRCLE))
         assertTrue(stopwatchStyles.contains(TimerTheme.THREE_BOX))
         assertTrue(stopwatchStyles.contains(TimerTheme.CONCENTRIC_RINGS))
         assertTrue(stopwatchStyles.contains(TimerTheme.FLIP_CLOCK))
-        assertTrue(stopwatchStyles.contains(TimerTheme.DOT_GRID))
         assertFalse("Hourglass is not available for Stopwatch", stopwatchStyles.contains(TimerTheme.HOURGLASS))
         assertFalse("Liquid Fill is not available for Stopwatch", stopwatchStyles.contains(TimerTheme.LIQUID_FILL))
+        assertFalse("Dot Grid is not available for Stopwatch", stopwatchStyles.contains(TimerTheme.DOT_GRID))
     }
 
     @Test

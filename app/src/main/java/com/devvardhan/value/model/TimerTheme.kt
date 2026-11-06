@@ -23,8 +23,7 @@ enum class TimerTheme(val displayName: String) {
             CIRCLE,
             CONCENTRIC_RINGS,
             THREE_BOX,
-            FLIP_CLOCK,
-            DOT_GRID
+            FLIP_CLOCK
         )
     }
 }

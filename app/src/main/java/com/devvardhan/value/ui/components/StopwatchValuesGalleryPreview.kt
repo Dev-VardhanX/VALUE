@@ -161,11 +161,65 @@ private fun PreviewConcentricRingsAllValues() {
     }
 }
 
-@Preview(name = "Dot Grid - All Values (Portrait 360dp)", widthDp = 360, heightDp = 1200)
+@Preview(name = "Stopwatch All Themes at 00:00:00.00", widthDp = 360, heightDp = 1000)
 @Composable
-private fun PreviewDotGridAllValues() {
+private fun PreviewStopwatchAllThemesAtZero() {
     ValueTimerTheme {
-        StopwatchThemeTestGallery(TimerTheme.DOT_GRID)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PureBlack)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            TimerTheme.stopwatchThemes.forEach { theme ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .background(PureBlack),
+                    contentAlignment = Alignment.Center
+                ) {
+                    StopwatchVisual(
+                        theme = theme,
+                        elapsedMillis = StopwatchTestValues.ZERO,
+                        status = StopwatchStatus.Running,
+                        layoutMode = ThemeLayoutMode.PORTRAIT
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Stopwatch All Themes at 12:34:56.78", widthDp = 360, heightDp = 1000)
+@Composable
+private fun PreviewStopwatchAllThemesAtMax() {
+    ValueTimerTheme {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PureBlack)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            TimerTheme.stopwatchThemes.forEach { theme ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .background(PureBlack),
+                    contentAlignment = Alignment.Center
+                ) {
+                    StopwatchVisual(
+                        theme = theme,
+                        elapsedMillis = StopwatchTestValues.TWELVE_HOUR_34,
+                        status = StopwatchStatus.Running,
+                        layoutMode = ThemeLayoutMode.PORTRAIT
+                    )
+                }
+            }
+        }
     }
 }
 

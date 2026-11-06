@@ -382,13 +382,6 @@ class StopwatchEngineTest {
         // Hours fraction: 0..12h
         assertEquals(0f, StopwatchFractionCalculator.calculateHoursFraction(0L), 0.001f)
         assertEquals(0.5f, StopwatchFractionCalculator.calculateHoursFraction(6 * 3_600_000L), 0.001f)
-
-        // Dot Grid: 60 dots, 1 dot per second
-        assertEquals(0, StopwatchFractionCalculator.calculateActiveDots(0L))
-        assertEquals(1, StopwatchFractionCalculator.calculateActiveDots(1000L))
-        assertEquals(30, StopwatchFractionCalculator.calculateActiveDots(30_000L))
-        assertEquals(59, StopwatchFractionCalculator.calculateActiveDots(59_000L))
-        assertEquals(0, StopwatchFractionCalculator.calculateActiveDots(60_000L)) // 60s wraps to 0
     }
 
     @Test

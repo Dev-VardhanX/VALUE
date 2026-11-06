@@ -71,11 +71,11 @@ class StopwatchViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun setTheme(theme: TimerTheme) {
-        // Filter out themes not supported by Stopwatch
-        val safeTheme = if (theme == TimerTheme.HOURGLASS || theme == TimerTheme.LIQUID_FILL) {
-            TimerTheme.CIRCLE
-        } else {
+        // Filter out themes not supported by Stopwatch (falls back to CIRCLE)
+        val safeTheme = if (theme in TimerTheme.stopwatchThemes) {
             theme
+        } else {
+            TimerTheme.CIRCLE
         }
         viewModelScope.launch {
             _uiState.update { it.copy(theme = safeTheme) }

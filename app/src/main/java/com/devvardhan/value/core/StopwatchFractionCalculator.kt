@@ -45,15 +45,5 @@ object StopwatchFractionCalculator {
         val hrMillis = elapsedMillis % MILLIS_PER_12_HOURS
         return (hrMillis.toFloat() / MILLIS_PER_12_HOURS.toFloat()).coerceIn(0f, 1f)
     }
-
-    /**
-     * Dot Grid theme: 60 dots, 1 more dot lit per second, resets every minute.
-     * Returns count of active dots (0..60).
-     */
-    fun calculateActiveDots(elapsedMillis: Long): Int {
-        if (elapsedMillis <= 0L) return 0
-        val secondInMinute = (elapsedMillis / MILLIS_PER_SECOND) % 60L
-        return secondInMinute.toInt().coerceIn(0, 60)
-    }
 }
 

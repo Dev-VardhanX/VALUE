@@ -437,7 +437,7 @@ private fun PreviewStopwatchLandscapeFiveLaps() {
             startTime = System.currentTimeMillis() - 78900L,
             accumulatedMillis = 78900L,
             laps = sampleLaps5,
-            theme = TimerTheme.DOT_GRID,
+            theme = TimerTheme.THREE_BOX,
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
