@@ -257,7 +257,8 @@ fun FullscreenStopwatchScreen(
                     lastInteractionTime = SystemClock.elapsedRealtime()
                     onResetClick()
                 },
-                height = if (isLandscape) 52.dp else 56.dp
+                height = if (isLandscape) 52.dp else 56.dp,
+                elapsedMillis = liveElapsedMillis
             )
         }
     }

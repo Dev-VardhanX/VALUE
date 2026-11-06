@@ -89,7 +89,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setHours(hours: Int) {
-        val clamped = hours.coerceIn(0, 23)
+        val clamped = hours.coerceIn(0, 99)
         _uiState.update { it.copy(selectedHours = clamped) }
         persistDuration()
     }

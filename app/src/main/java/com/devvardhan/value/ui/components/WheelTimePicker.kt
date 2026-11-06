@@ -1,7 +1,6 @@
 package com.devvardhan.value.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,10 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,7 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,8 +39,9 @@ import com.devvardhan.value.ui.theme.SubtleGray
 import kotlinx.coroutines.launch
 
 /**
- * Three-wheel time duration picker (Hours, Minutes, Seconds) with snapping momentum scrolling
- * and direct tactile tappable steppers.
+ * Three-wheel time duration picker (Hours 0..99, Minutes 0..59, Seconds 0..59)
+ * with circular infinite looping, snapping momentum scrolling, looping +/- steppers,
+ * and tabular monospace figure formatting.
  */
 @Composable
 fun WheelTimePicker(
@@ -62,18 +60,18 @@ fun WheelTimePicker(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Hours Wheel
+        // Hours Wheel (0..99)
         WheelColumn(
             label = "HOURS",
             selectedValue = hours,
-            maxValue = 23,
+            maxValue = 99,
             onValueChange = onHoursChange,
             modifier = Modifier.weight(1f)
         )
 
         ColonSeparator()
 
-        // Minutes Wheel
+        // Minutes Wheel (0..59)
         WheelColumn(
             label = "MINUTES",
             selectedValue = minutes,
@@ -84,7 +82,7 @@ fun WheelTimePicker(
 
         ColonSeparator()
 
-        // Seconds Wheel
+        // Seconds Wheel (0..59)
         WheelColumn(
             label = "SECONDS",
             selectedValue = seconds,
@@ -128,23 +126,40 @@ private fun WheelColumn(
     val itemHeight = 56.dp
     val totalWheelHeight = itemHeight * 3
 
-    val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = selectedValue)
+    val rangeSize = maxValue + 1
+    val repeatCount = 1000
+    val totalVirtualItems = rangeSize * repeatCount
+    val middleBaseIndex = (repeatCount / 2) * rangeSize
+
+    val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = middleBaseIndex + selectedValue)
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState)
 
     // Sync scrolling state to selectedValue
     LaunchedEffect(lazyListState.isScrollInProgress) {
         if (!lazyListState.isScrollInProgress) {
-            val snappedIndex = lazyListState.firstVisibleItemIndex
-            if (snappedIndex in 0..maxValue && snappedIndex != selectedValue) {
-                onValueChange(snappedIndex)
+            val currentIndex = lazyListState.firstVisibleItemIndex
+            val resolvedValue = (currentIndex % rangeSize + rangeSize) % rangeSize
+            if (resolvedValue != selectedValue) {
+                onValueChange(resolvedValue)
             }
         }
     }
 
-    // Sync external selectedValue changes to list scroll
+    // Sync external selectedValue changes (such as +/- buttons) to list scroll with shortest path wrap
     LaunchedEffect(selectedValue) {
-        if (!lazyListState.isScrollInProgress && lazyListState.firstVisibleItemIndex != selectedValue) {
-            lazyListState.animateScrollToItem(selectedValue)
+        if (!lazyListState.isScrollInProgress) {
+            val currentIndex = lazyListState.firstVisibleItemIndex
+            val currentResolved = (currentIndex % rangeSize + rangeSize) % rangeSize
+            if (currentResolved != selectedValue) {
+                var diff = selectedValue - currentResolved
+                if (diff > rangeSize / 2) {
+                    diff -= rangeSize
+                } else if (diff < -rangeSize / 2) {
+                    diff += rangeSize
+                }
+                val targetIndex = currentIndex + diff
+                lazyListState.animateScrollToItem(targetIndex)
+            }
         }
     }
 
@@ -162,10 +177,10 @@ private fun WheelColumn(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Increment button (+)
+        // Increment button (+) with circular looping
         IconButton(
             onClick = {
-                val next = (selectedValue + 1).coerceAtMost(maxValue)
+                val next = (selectedValue + 1) % rangeSize
                 onValueChange(next)
             },
             modifier = Modifier.size(36.dp)
@@ -196,16 +211,20 @@ private fun WheelColumn(
                 HorizontalDivider(color = BorderSubtle, thickness = 0.8.dp)
             }
 
-            // Scrollable numbers
+            // Infinite circular scrollable numbers
             LazyColumn(
                 state = lazyListState,
                 flingBehavior = flingBehavior,
                 contentPadding = PaddingValues(vertical = itemHeight),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(maxValue + 1) { index ->
-                    val isSelected = index == selectedValue
-                    val isAdjacent = kotlin.math.abs(index - selectedValue) == 1
+                items(
+                    count = totalVirtualItems,
+                    key = { it }
+                ) { index ->
+                    val value = index % rangeSize
+                    val isSelected = index == lazyListState.firstVisibleItemIndex
+                    val isAdjacent = kotlin.math.abs(index - lazyListState.firstVisibleItemIndex) == 1
 
                     Box(
                         modifier = Modifier
@@ -222,10 +241,13 @@ private fun WheelColumn(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = TimeUtils.formatTwoDigits(index),
-                            fontSize = if (isSelected) 42.sp else 24.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = if (isSelected) FontWeight.Normal else FontWeight.ExtraLight,
+                            text = TimeUtils.formatTwoDigits(value),
+                            style = TextStyle(
+                                fontSize = if (isSelected) 42.sp else 24.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = if (isSelected) FontWeight.Normal else FontWeight.ExtraLight,
+                                fontFeatureSettings = "tnum"
+                            ),
                             color = if (isSelected) PureWhite else SubtleGray,
                             modifier = Modifier.alpha(
                                 if (isSelected) 1.0f else if (isAdjacent) 0.45f else 0.15f
@@ -236,10 +258,10 @@ private fun WheelColumn(
             }
         }
 
-        // Decrement button (-)
+        // Decrement button (-) with circular looping
         IconButton(
             onClick = {
-                val prev = (selectedValue - 1).coerceAtLeast(0)
+                val prev = (selectedValue - 1 + rangeSize) % rangeSize
                 onValueChange(prev)
             },
             modifier = Modifier.size(36.dp)
@@ -253,4 +275,3 @@ private fun WheelColumn(
         }
     }
 }
-

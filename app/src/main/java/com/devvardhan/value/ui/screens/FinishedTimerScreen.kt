@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -95,9 +96,12 @@ fun FinishedTimerScreen(
                     ) {
                         Text(
                             text = "00:00:00",
-                            fontSize = 44.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Light,
+                            style = TextStyle(
+                                fontSize = 44.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Light,
+                                fontFeatureSettings = "tnum"
+                            ),
                             color = PureWhite,
                             letterSpacing = 2.sp
                         )

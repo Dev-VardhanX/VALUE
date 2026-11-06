@@ -104,13 +104,11 @@ object AdaptiveLayoutHelper {
         val landscape = isLandscape(availableWidth, availableHeight, 1.15f)
         return if (landscape) {
             val panelHeight = (availableHeight * 0.82f).coerceAtLeast(110f)
-            val centisAllowance = if (isStopwatch) 48f else 0f
-            val panelWidth = minOf((availableWidth - 64f - centisAllowance) / 3.1f, panelHeight * 0.95f).coerceAtLeast(65f)
+            val panelWidth = minOf((availableWidth - 64f) / 3.1f, panelHeight * 0.95f).coerceAtLeast(65f)
             val fontSize = (panelHeight * 0.38f).coerceIn(24f, 72f)
             ThreeBoxDimensions(panelWidth = panelWidth, panelHeight = panelHeight, fontSize = fontSize)
         } else {
-            val centisAllowance = if (isStopwatch) 52f else 0f
-            val panelWidth = ((availableWidth - 36f - centisAllowance) / 3.05f).coerceIn(60f, 150f)
+            val panelWidth = ((availableWidth - 36f) / 3.05f).coerceIn(60f, 150f)
             val panelHeight = minOf(panelWidth * 1.32f, availableHeight * 0.92f).coerceIn(88f, 240f)
             val fontSize = (panelHeight * 0.40f).coerceIn(24f, 64f)
             ThreeBoxDimensions(panelWidth = panelWidth, panelHeight = panelHeight, fontSize = fontSize)
@@ -255,12 +253,13 @@ object AdaptiveLayoutHelper {
      * Resolves the stopwatch control row states:
      * - LEFT: Flag/Lap button (enabled ONLY while running, capped at maxLaps)
      * - CENTER: Main pill button (Start when Idle, Pause when Running, Resume when Paused; always enabled)
-     * - RIGHT: Reset button (enabled when Paused or when laps exist)
+     * - RIGHT: Reset button (enabled while Running, Paused, or Idle with laps/elapsed; disabled only when Idle with 0 laps and 0 elapsed)
      */
     fun getStopwatchControlRowState(
         status: StopwatchStatus,
         lapsCount: Int = 0,
-        maxLaps: Int = 99
+        maxLaps: Int = 99,
+        elapsedMillis: Long = 0L
     ): StopwatchControlRowState {
         val mainAction = when (status) {
             StopwatchStatus.Idle -> StopwatchControlRowState.MainAction.START
@@ -268,7 +267,9 @@ object AdaptiveLayoutHelper {
             StopwatchStatus.Paused -> StopwatchControlRowState.MainAction.RESUME
         }
         val isLapEnabled = (status == StopwatchStatus.Running) && (lapsCount < maxLaps)
-        val isResetEnabled = (status == StopwatchStatus.Paused) || (status == StopwatchStatus.Idle && lapsCount > 0)
+        val isResetEnabled = (status == StopwatchStatus.Running) ||
+                             (status == StopwatchStatus.Paused) ||
+                             (status == StopwatchStatus.Idle && (lapsCount > 0 || elapsedMillis > 0L))
 
         return StopwatchControlRowState(
             mainAction = mainAction,

@@ -93,18 +93,17 @@ class AdaptiveLayoutHelperTest {
     }
 
     @Test
-    fun testThreeBoxCentisecondsAllowanceReservesWidth() {
-        // On 360dp phone width, stopwatch mode must reserve room for centiseconds
+    fun testThreeBoxSymmetricalDimensionsAcrossModes() {
+        // Now that centiseconds are placed in the dedicated CentisecondsSlot below the visual,
+        // ThreeBox panels remain strictly symmetrical across Timer and Stopwatch modes.
         val timerDims = AdaptiveLayoutHelper.calculateThreeBoxDimensions(360f, 300f, isStopwatch = false)
         val stopwatchDims = AdaptiveLayoutHelper.calculateThreeBoxDimensions(360f, 300f, isStopwatch = true)
 
-        assertTrue(
-            "Stopwatch panelWidth must be smaller than Timer panelWidth to reserve space for centiseconds",
-            stopwatchDims.panelWidth < timerDims.panelWidth
-        )
+        assertEquals(timerDims.panelWidth, stopwatchDims.panelWidth, 0.01f)
+        assertEquals(timerDims.panelHeight, stopwatchDims.panelHeight, 0.01f)
 
-        // Ensure 3 stopwatch panels + centiseconds allowance (52f) + padding fits within 360dp
-        val totalNeeded = (stopwatchDims.panelWidth * 3) + 52f + 16f
+        // Ensure 3 panels + padding comfortably fit within 360dp phone width
+        val totalNeeded = (timerDims.panelWidth * 3) + 36f
         assertTrue("Total width used ($totalNeeded) must fit within 360dp", totalNeeded <= 360f)
     }
 
@@ -177,26 +176,26 @@ class AdaptiveLayoutHelperTest {
         assertFalse("Lap must be disabled when Idle", idleWithLaps.isLapEnabled)
         assertTrue("Reset must be enabled when Idle with laps", idleWithLaps.isResetEnabled)
 
-        // 3. Running state without laps: Lap=enabled, Main=Pause (enabled), Reset=disabled
+        // 3. Running state without laps: Lap=enabled, Main=Pause (enabled), Reset=enabled
         val running0 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Running, lapsCount = 0)
         assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, running0.mainAction)
         assertTrue(running0.isMainEnabled)
         assertTrue("Lap must be enabled when Running", running0.isLapEnabled)
-        assertFalse("Reset must be disabled when Running", running0.isResetEnabled)
+        assertTrue("Reset must be enabled when Running", running0.isResetEnabled)
 
-        // 4. Running state with laps (< 99): Lap=enabled, Reset=disabled
+        // 4. Running state with laps (< 99): Lap=enabled, Reset=enabled
         val running10 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Running, lapsCount = 10)
         assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, running10.mainAction)
         assertTrue(running10.isMainEnabled)
         assertTrue("Lap must be enabled under 99 laps", running10.isLapEnabled)
-        assertFalse("Reset must be disabled when Running", running10.isResetEnabled)
+        assertTrue("Reset must be enabled when Running", running10.isResetEnabled)
 
-        // 5. Running state with 99 laps (maxed): Lap becomes disabled
+        // 5. Running state with 99 laps (maxed): Lap becomes disabled, Reset remains enabled
         val running99 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Running, lapsCount = 99)
         assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, running99.mainAction)
         assertTrue(running99.isMainEnabled)
         assertFalse("Lap must be disabled when max laps (99) reached", running99.isLapEnabled)
-        assertFalse("Reset must be disabled when Running", running99.isResetEnabled)
+        assertTrue("Reset must be enabled when Running", running99.isResetEnabled)
 
         // 6. Paused state without laps: Lap=disabled, Main=Resume (enabled), Reset=enabled
         val paused0 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Paused, lapsCount = 0)

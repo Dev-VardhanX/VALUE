@@ -202,6 +202,7 @@ class StopwatchService : Service() {
 
         if (isRunning) {
             builder.addAction(lapAction)
+            builder.addAction(resetAction)
             builder.setUsesChronometer(true)
             builder.setWhen(System.currentTimeMillis() - accumulatedMillis)
             builder.setShowWhen(true)

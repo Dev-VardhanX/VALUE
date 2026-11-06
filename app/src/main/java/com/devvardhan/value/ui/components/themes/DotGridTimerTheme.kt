@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -114,47 +115,25 @@ fun DotGridTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                if (isStopwatch) {
-                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
-                    val centisStr = ".${TimeUtils.formatStopwatchCentiseconds(stopwatchElapsedMillis)}"
-
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = mainUnits,
-                            fontSize = matrix.fontSize.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Light,
-                            color = PureWhite,
-                            letterSpacing = 1.5.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Text(
-                            text = centisStr,
-                            fontSize = (matrix.fontSize * 0.40f).coerceIn(12f, 26f).sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Normal,
-                            color = SubtleGray,
-                            modifier = Modifier.padding(bottom = (matrix.fontSize * 0.08f).dp),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                val displayText = if (isStopwatch) {
+                    TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
                 } else {
-                    Text(
-                        text = formattedTime,
-                        fontSize = matrix.fontSize.sp,
+                    formattedTime
+                }
+
+                Text(
+                    text = displayText,
+                    style = TextStyle(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Light,
-                        color = PureWhite,
-                        letterSpacing = 2.sp,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
+                        fontSize = matrix.fontSize.sp,
+                        letterSpacing = if (isStopwatch) 1.5.sp else 2.sp,
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = PureWhite,
+                    maxLines = 1,
+                    softWrap = false
+                )
 
                 Spacer(modifier = Modifier.height(6.dp))
 

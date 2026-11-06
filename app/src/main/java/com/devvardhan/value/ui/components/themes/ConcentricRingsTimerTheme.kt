@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -216,47 +217,25 @@ fun ConcentricRingsTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                if (isStopwatch) {
-                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
-                    val centisStr = ".${TimeUtils.formatStopwatchCentiseconds(stopwatchElapsedMillis)}"
-
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = mainUnits,
-                            fontSize = fontSize,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Light,
-                            color = PureWhite,
-                            letterSpacing = if (hasHours) 0.5.sp else 1.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Text(
-                            text = centisStr,
-                            fontSize = (fontSize.value * 0.40f).coerceIn(12f, 24f).sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Normal,
-                            color = SubtleGray,
-                            modifier = Modifier.padding(bottom = (fontSize.value * 0.08f).dp),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                val displayText = if (isStopwatch) {
+                    TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
                 } else {
-                    Text(
-                        text = formattedTime,
-                        fontSize = fontSize,
+                    formattedTime
+                }
+
+                Text(
+                    text = displayText,
+                    style = TextStyle(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Light,
-                        color = PureWhite,
-                        letterSpacing = if (hasHours) 1.sp else 1.5.sp,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
+                        fontSize = fontSize,
+                        letterSpacing = if (hasHours) 0.5.sp else 1.sp,
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = PureWhite,
+                    maxLines = 1,
+                    softWrap = false
+                )
 
                 if (isPaused) {
                     Spacer(modifier = Modifier.height(4.dp))

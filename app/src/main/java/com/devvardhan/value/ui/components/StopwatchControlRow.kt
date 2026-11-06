@@ -54,14 +54,16 @@ fun StopwatchControlRow(
     onResetClick: () -> Unit,
     modifier: Modifier = Modifier,
     height: Dp = 56.dp,
-    latestSplitFormatted: String? = null
+    latestSplitFormatted: String? = null,
+    elapsedMillis: Long = 0L
 ) {
     val haptic = LocalHapticFeedback.current
     val view = LocalView.current
 
     val state = AdaptiveLayoutHelper.getStopwatchControlRowState(
         status = status,
-        lapsCount = lapsCount
+        lapsCount = lapsCount,
+        elapsedMillis = elapsedMillis
     )
 
     val (mainLabel, onMainClick) = when (status) {

@@ -93,17 +93,17 @@ fun StopwatchScreen(
         val isLandscape = maxWidth > maxHeight * 1.15f
 
         if (isLandscape) {
-            // Landscape layout: visual on the left (~58%), controls and lap list on the right
+            // Landscape layout: visual on the left (~58%), compact right column with top strip, control row, and lap list
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left pane: Stopwatch visual
+                // Left pane: Stopwatch visual (~58% width, full height)
                 Box(
                     modifier = Modifier
-                        .weight(1.3f)
+                        .weight(1.38f)
                         .fillMaxHeight()
                         .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.Center
@@ -115,27 +115,27 @@ fun StopwatchScreen(
                     )
                 }
 
-                // Right pane: Header row, Mode switch, action controls, and lap list
+                // Right pane: Compact top strip (ModeSwitch + Style/Fullscreen), control row, and lap list filling remainder
                 Column(
                     modifier = Modifier
                         .weight(1.0f)
                         .fillMaxHeight()
                         .padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Header row: VALUE wordmark on left, Style + Fullscreen on right
+                    // Compact top strip: ModeSwitch on left, Style and Fullscreen buttons on right
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SubtleGray,
-                            letterSpacing = 3.sp
+                        ModeSwitch(
+                            currentMode = currentMode,
+                            isTimerRunning = isTimerRunning,
+                            isStopwatchRunning = isRunning,
+                            onModeSelected = onModeSelected,
+                            modifier = Modifier.width(180.dp)
                         )
 
                         Row(
@@ -145,7 +145,7 @@ fun StopwatchScreen(
                             IconButton(
                                 onClick = onOpenGallery,
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(38.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Choose style gallery" }
                             ) {
@@ -153,14 +153,14 @@ fun StopwatchScreen(
                                     imageVector = AppIcons.Palette,
                                     contentDescription = stringResource(R.string.action_style),
                                     tint = PureWhite,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
 
                             IconButton(
                                 onClick = onFullscreenClick,
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(38.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Enter fullscreen mode" }
                             ) {
@@ -168,23 +168,11 @@ fun StopwatchScreen(
                                     imageVector = AppIcons.Fullscreen,
                                     contentDescription = stringResource(R.string.action_fullscreen),
                                     tint = PureWhite,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    ModeSwitch(
-                        currentMode = currentMode,
-                        isTimerRunning = isTimerRunning,
-                        isStopwatchRunning = isRunning,
-                        onModeSelected = onModeSelected,
-                        modifier = Modifier.width(200.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Action controls row (Flag | Start/Pause/Resume | Reset)
                     val landscapeSplitFormatted = if (laps.isEmpty()) {
@@ -201,11 +189,10 @@ fun StopwatchScreen(
                         onLapClick = onLapClick,
                         onResetClick = onResetClick,
                         modifier = Modifier.fillMaxWidth(),
-                        height = 52.dp,
-                        latestSplitFormatted = landscapeSplitFormatted
+                        height = 50.dp,
+                        latestSplitFormatted = landscapeSplitFormatted,
+                        elapsedMillis = liveElapsedMillis
                     )
-
-                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Lap List filling remainder
                     LapList(
@@ -340,7 +327,8 @@ fun StopwatchScreen(
                         onResetClick = onResetClick,
                         modifier = Modifier.fillMaxWidth(),
                         height = 56.dp,
-                        latestSplitFormatted = portraitSplitFormatted
+                        latestSplitFormatted = portraitSplitFormatted,
+                        elapsedMillis = liveElapsedMillis
                     )
                 }
 

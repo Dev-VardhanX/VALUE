@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -179,9 +180,12 @@ private fun LapRow(
         ) {
             Text(
                 text = "Lap $lapNumStr",
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Normal,
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Normal,
+                    fontFeatureSettings = "tnum"
+                ),
                 color = PureWhite
             )
 
@@ -196,17 +200,23 @@ private fun LapRow(
 
         Text(
             text = lapSplitText,
-            fontSize = 13.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Normal,
+            style = TextStyle(
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Normal,
+                fontFeatureSettings = "tnum"
+            ),
             color = if (isBest) PureWhite else SubtleGray
         )
 
         Text(
             text = lapTotalText,
-            fontSize = 13.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Normal,
+            style = TextStyle(
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Normal,
+                fontFeatureSettings = "tnum"
+            ),
             color = PureWhite
         )
     }

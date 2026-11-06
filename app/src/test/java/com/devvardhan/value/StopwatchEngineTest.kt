@@ -398,7 +398,7 @@ class StopwatchEngineTest {
             clock = { fakeCurrentTime }
         )
 
-        for (cycle in 1..5) {
+        for (cycle in 1..7) {
             // --- Normal Control Row Verification ---
             // 1. Initial Idle
             var controls = com.devvardhan.value.core.AdaptiveLayoutHelper.getStopwatchControlRowState(
@@ -414,7 +414,7 @@ class StopwatchEngineTest {
             StopwatchEngine.start()
             fakeCurrentTime += 2500L
 
-            // 2. Running state
+            // 2. Running state: Reset must be enabled while running
             controls = com.devvardhan.value.core.AdaptiveLayoutHelper.getStopwatchControlRowState(
                 StopwatchStatus.Running,
                 lapsCount = 0
@@ -422,7 +422,7 @@ class StopwatchEngineTest {
             assertEquals("Cycle $cycle: Main should be PAUSE", com.devvardhan.value.core.AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, controls.mainAction)
             assertTrue(controls.isMainEnabled)
             assertTrue(controls.isLapEnabled)
-            assertFalse(controls.isResetEnabled)
+            assertTrue("Reset must be enabled while Running", controls.isResetEnabled)
 
             // LAP
             val lap = StopwatchEngine.lap()
@@ -431,26 +431,34 @@ class StopwatchEngineTest {
 
             fakeCurrentTime += 1500L
 
-            // PAUSE
-            StopwatchEngine.pause()
-            controls = com.devvardhan.value.core.AdaptiveLayoutHelper.getStopwatchControlRowState(
-                StopwatchStatus.Paused,
-                lapsCount = 1
-            )
-            assertEquals("Cycle $cycle: Main should be RESUME", com.devvardhan.value.core.AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.RESUME, controls.mainAction)
-            assertTrue(controls.isMainEnabled)
-            assertFalse(controls.isLapEnabled)
-            assertTrue(controls.isResetEnabled)
+            // In even cycles, test Reset directly while Running
+            if (cycle % 2 == 0) {
+                StopwatchEngine.reset()
+                assertEquals("Cycle $cycle: Must be Idle after reset while running", StopwatchStatus.Idle, StopwatchEngine.snapshot.value.status)
+                assertEquals(0, StopwatchEngine.snapshot.value.laps.size)
+                assertEquals(0L, StopwatchEngine.snapshot.value.computeElapsedMillis(fakeCurrentTime))
+            } else {
+                // PAUSE
+                StopwatchEngine.pause()
+                controls = com.devvardhan.value.core.AdaptiveLayoutHelper.getStopwatchControlRowState(
+                    StopwatchStatus.Paused,
+                    lapsCount = 1
+                )
+                assertEquals("Cycle $cycle: Main should be RESUME", com.devvardhan.value.core.AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.RESUME, controls.mainAction)
+                assertTrue(controls.isMainEnabled)
+                assertFalse(controls.isLapEnabled)
+                assertTrue(controls.isResetEnabled)
 
-            // RESUME
-            StopwatchEngine.resume()
-            fakeCurrentTime += 1000L
+                // RESUME
+                StopwatchEngine.resume()
+                fakeCurrentTime += 1000L
 
-            // RESET
-            StopwatchEngine.pause()
-            StopwatchEngine.reset()
-            assertEquals("Cycle $cycle: Must be Idle after reset", StopwatchStatus.Idle, StopwatchEngine.snapshot.value.status)
-            assertEquals(0, StopwatchEngine.snapshot.value.laps.size)
+                // RESET from Paused
+                StopwatchEngine.pause()
+                StopwatchEngine.reset()
+                assertEquals("Cycle $cycle: Must be Idle after reset", StopwatchStatus.Idle, StopwatchEngine.snapshot.value.status)
+                assertEquals(0, StopwatchEngine.snapshot.value.laps.size)
+            }
 
             // --- Fullscreen Auto-Hide Simulation in this cycle ---
             autoHide.show()

@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -76,10 +77,6 @@ fun FlipClockTimerTheme(
     val mStr = TimeUtils.formatTwoDigits(minutes)
     val sStr = TimeUtils.formatTwoDigits(seconds)
 
-    val centisStr = if (isStopwatch) {
-        String.format(".%02d", (stopwatchElapsedMillis % 1000L) / 10L)
-    } else null
-
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -96,7 +93,7 @@ fun FlipClockTimerTheme(
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 4.dp)
         ) {
             if (showHours) {
@@ -116,20 +113,6 @@ fun FlipClockTimerTheme(
             // Seconds
             FlipDigitCard(digit = sStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
             FlipDigitCard(digit = sStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
-
-            if (isStopwatch && centisStr != null) {
-                Spacer(modifier = Modifier.width(spacing))
-                Text(
-                    text = centisStr,
-                    fontSize = (fontSize.value * 0.40f).coerceIn(14f, 28f).sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    color = SubtleGray,
-                    modifier = Modifier.padding(bottom = (cardHeight.value * 0.14f).dp),
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
         }
     }
 }
@@ -176,9 +159,12 @@ private fun FlipDigitCard(
 
         Text(
             text = charToShow.toString(),
-            fontSize = fontSize,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Light,
+            style = TextStyle(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Light,
+                fontSize = fontSize,
+                fontFeatureSettings = "tnum"
+            ),
             color = PureWhite,
             modifier = Modifier.graphicsLayer {
                 if (flipAnimation.value >= 0.5f) {

@@ -12,7 +12,8 @@ import kotlinx.coroutines.isActive
 
 /**
  * Decoupled 60fps UI frame clock based on SystemClock.elapsedRealtime().
- * Avoids emitting StateFlow 60 times a second while guaranteeing perfectly fluid visual motion.
+ * Immediately computes the correct remaining duration synchronously on frame 0,
+ * avoiding any initial 0L delay or late animation starts.
  */
 @Composable
 fun rememberCountdownRemainingMillis(
@@ -20,14 +21,15 @@ fun rememberCountdownRemainingMillis(
     targetEndTime: Long,
     pausedRemainingMillis: Long
 ): State<Long> {
-    val remainingMillisState = remember {
-        mutableLongStateOf(
-            when (status) {
-                TimerStatus.Running -> maxOf(0L, targetEndTime - SystemClock.elapsedRealtime())
-                TimerStatus.Paused -> pausedRemainingMillis
-                else -> 0L
-            }
-        )
+    val initialRemaining = when (status) {
+        TimerStatus.Running -> maxOf(0L, targetEndTime - SystemClock.elapsedRealtime())
+        TimerStatus.Paused -> pausedRemainingMillis
+        else -> 0L
+    }
+
+    // Keyed on (status, targetEndTime, pausedRemainingMillis) so state is instantly correct on frame 0
+    val remainingMillisState = remember(status, targetEndTime, pausedRemainingMillis) {
+        mutableLongStateOf(initialRemaining)
     }
 
     LaunchedEffect(status, targetEndTime, pausedRemainingMillis) {
@@ -53,4 +55,3 @@ fun rememberCountdownRemainingMillis(
 
     return remainingMillisState
 }
-

@@ -1,11 +1,6 @@
 package com.devvardhan.value.ui.components.themes
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -26,9 +20,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -42,12 +39,30 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import kotlin.math.sqrt
+
+/**
+ * Precomputed pseudo-random grain offsets (normalized 0f..1f) to avoid any memory allocations per frame.
+ */
+private val PRECOMPUTED_GRAIN_X = floatArrayOf(
+    0.35f, 0.62f, 0.48f, 0.28f, 0.71f, 0.52f, 0.39f, 0.58f,
+    0.44f, 0.66f, 0.31f, 0.74f, 0.50f, 0.42f, 0.59f, 0.36f,
+    0.68f, 0.46f, 0.54f, 0.29f, 0.63f, 0.40f, 0.57f, 0.49f
+)
+private val PRECOMPUTED_GRAIN_Y = floatArrayOf(
+    0.15f, 0.22f, 0.45f, 0.68f, 0.75f, 0.32f, 0.82f, 0.18f,
+    0.55f, 0.62f, 0.38f, 0.85f, 0.92f, 0.26f, 0.48f, 0.72f,
+    0.12f, 0.65f, 0.88f, 0.34f, 0.58f, 0.78f, 0.42f, 0.95f
+)
 
 /**
  * Theme 2: Hourglass.
- * Line-drawn glass container with sand draining from top to bottom chamber.
- * Fills height in landscape with digits beside it, or displays stacked in portrait.
- * Preallocates Path objects outside draw loop for allocation-free 60fps rendering.
+ * Realistic line-drawn hourglass with two funnel/bulb chambers joined by a narrow neck.
+ * Sand is strictly clipped to the interior glass path (preventing any spill-over).
+ * - Top chamber sand decreases with time, narrowing toward the neck with a subtle center dip.
+ * - Bottom chamber sand accumulates into a volume-correct conical mound that widens as it fills.
+ * - Falling sand stream and animated grains in the neck run only while active.
+ * - Strict monochrome palette with preallocated Paths and zero-allocation grain texture.
  */
 @Composable
 fun HourglassTimerTheme(
@@ -60,7 +75,7 @@ fun HourglassTimerTheme(
     val isRunning = status == TimerStatus.Running && remainingMillis > 0L
     val isPaused = status == TimerStatus.Paused
 
-    // Digits update only once per second via derived state
+    // Digits derived once per second to prevent unnecessary recomposition
     val displayedSeconds by remember(remainingMillis) {
         derivedStateOf {
             if (remainingMillis <= 0L) 0L else (remainingMillis + 999L) / 1000L
@@ -75,27 +90,10 @@ fun HourglassTimerTheme(
         TimeUtils.formatHms(totalMillis)
     }
 
-    // Preallocated Path objects
+    // Cached Path objects reused across draw passes
     val glassPath = remember { Path() }
     val topSandPath = remember { Path() }
     val bottomSandPath = remember { Path() }
-
-    // Stream animation
-    val streamAnim = if (isRunning) {
-        val infiniteTransition = rememberInfiniteTransition(label = "sandStream")
-        val alpha by infiniteTransition.animateFloat(
-            initialValue = 0.7f,
-            targetValue = 1.0f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 300, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "sandAlpha"
-        )
-        alpha
-    } else {
-        1.0f
-    }
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -111,107 +109,164 @@ fun HourglassTimerTheme(
             ) {
                 val w = size.width
                 val h = size.height
-                val neckWidth = w * 0.12f
-                val neckHeight = h * 0.05f
-                val bulbHeight = (h - neckHeight) / 2f
+
+                // Hourglass geometric proportions
+                val neckWidth = (w * 0.09f).coerceIn(6f, 16f)
+                val neckHeight = (h * 0.05f).coerceIn(6f, 18f)
+                val neckTopY = (h - neckHeight) / 2f
+                val neckBottomY = neckTopY + neckHeight
+
                 val plateExtra = w * 0.08f
                 val strokeThickness = 1.5.dp.toPx()
+                val rimInset = w * 0.06f
 
-                // 1. Top and bottom plates
+                // 1. Build the complete closed Glass Path (two rounded funnels meeting at the neck)
+                glassPath.reset()
+                // Top rim
+                glassPath.moveTo(rimInset, 0f)
+                glassPath.lineTo(w - rimInset, 0f)
+                // Right bulb (top chamber) curving down to neck
+                glassPath.cubicTo(
+                    w - rimInset, neckTopY * 0.35f,
+                    (w + neckWidth) / 2f + 4f, neckTopY * 0.85f,
+                    (w + neckWidth) / 2f, neckTopY
+                )
+                // Neck right edge
+                glassPath.lineTo((w + neckWidth) / 2f, neckBottomY)
+                // Right bulb (bottom chamber) curving down to bottom rim
+                glassPath.cubicTo(
+                    (w + neckWidth) / 2f + 4f, neckBottomY + (h - neckBottomY) * 0.15f,
+                    w - rimInset, neckBottomY + (h - neckBottomY) * 0.65f,
+                    w - rimInset, h
+                )
+                // Bottom rim
+                glassPath.lineTo(rimInset, h)
+                // Left bulb (bottom chamber) curving up to neck
+                glassPath.cubicTo(
+                    rimInset, neckBottomY + (h - neckBottomY) * 0.65f,
+                    (w - neckWidth) / 2f - 4f, neckBottomY + (h - neckBottomY) * 0.15f,
+                    (w - neckWidth) / 2f, neckBottomY
+                )
+                // Neck left edge
+                glassPath.lineTo((w - neckWidth) / 2f, neckTopY)
+                // Left bulb (top chamber) curving up to top rim
+                glassPath.cubicTo(
+                    (w - neckWidth) / 2f - 4f, neckTopY * 0.85f,
+                    rimInset, neckTopY * 0.35f,
+                    rimInset, 0f
+                )
+                glassPath.close()
+
+                // 2. Draw Top and Bottom End Plates
                 drawLine(
                     color = SubtleGray,
                     start = Offset(-plateExtra, 0f),
                     end = Offset(w + plateExtra, 0f),
-                    strokeWidth = strokeThickness * 1.5f,
+                    strokeWidth = strokeThickness * 1.8f,
                     cap = StrokeCap.Round
                 )
                 drawLine(
                     color = SubtleGray,
                     start = Offset(-plateExtra, h),
                     end = Offset(w + plateExtra, h),
-                    strokeWidth = strokeThickness * 1.5f,
+                    strokeWidth = strokeThickness * 1.8f,
                     cap = StrokeCap.Round
                 )
 
-                // 2. Glass outline
-                glassPath.reset()
-                glassPath.moveTo(0f, 0f)
-                glassPath.cubicTo(
-                    w * 0.05f, bulbHeight * 0.6f,
-                    (w - neckWidth) / 2f - 2f, bulbHeight * 0.9f,
-                    (w - neckWidth) / 2f, bulbHeight
-                )
-                glassPath.lineTo((w - neckWidth) / 2f, bulbHeight + neckHeight)
-                glassPath.cubicTo(
-                    (w - neckWidth) / 2f - 2f, bulbHeight + neckHeight + bulbHeight * 0.1f,
-                    w * 0.05f, bulbHeight + neckHeight + bulbHeight * 0.4f,
-                    0f, h
-                )
+                // 3. Clip sand strictly to the inside of the glass so sand never spills outside
+                clipPath(glassPath) {
+                    // --- TOP CHAMBER SAND ---
+                    if (progress > 0.005f) {
+                        val availableTopHeight = neckTopY - strokeThickness
+                        // Surface level lowers as progress decreases (from 0 near rim to neckTopY)
+                        val topSurfaceY = neckTopY - (availableTopHeight * progress)
 
-                glassPath.moveTo(w, h)
-                glassPath.cubicTo(
-                    w - w * 0.05f, bulbHeight + neckHeight + bulbHeight * 0.4f,
-                    (w + neckWidth) / 2f + 2f, bulbHeight + neckHeight + bulbHeight * 0.1f,
-                    (w + neckWidth) / 2f, bulbHeight + neckHeight
-                )
-                glassPath.lineTo((w + neckWidth) / 2f, bulbHeight)
-                glassPath.cubicTo(
-                    (w + neckWidth) / 2f + 2f, bulbHeight * 0.9f,
-                    w - w * 0.05f, bulbHeight * 0.6f,
-                    w, 0f
-                )
-                drawPath(glassPath, color = BorderSubtle, style = Stroke(width = strokeThickness))
+                        topSandPath.reset()
+                        topSandPath.moveTo(0f, topSurfaceY)
 
-                // 3. Sand in top chamber
-                if (progress > 0.005f) {
-                    val sandHeightTop = bulbHeight * progress
-                    val sandTopY = bulbHeight - sandHeightTop
-                    val fractionAtY = 1f - (sandTopY / bulbHeight)
-                    val halfWidthAtTop = (neckWidth / 2f) + (w / 2f - neckWidth / 2f) * fractionAtY
-                    val leftX = (w / 2f) - halfWidthAtTop
-                    val rightX = (w / 2f) + halfWidthAtTop
+                        // Subtle funnel dip in center while running
+                        if (isRunning && progress in 0.03f..0.98f) {
+                            topSandPath.quadraticTo(w / 2f, topSurfaceY + 4.dp.toPx(), w, topSurfaceY)
+                        } else {
+                            topSandPath.lineTo(w, topSurfaceY)
+                        }
+                        topSandPath.lineTo(w, neckTopY)
+                        topSandPath.lineTo(0f, neckTopY)
+                        topSandPath.close()
 
-                    topSandPath.reset()
-                    topSandPath.moveTo(leftX, sandTopY)
-                    topSandPath.lineTo(rightX, sandTopY)
-                    topSandPath.lineTo((w + neckWidth) / 2f, bulbHeight)
-                    topSandPath.lineTo((w - neckWidth) / 2f, bulbHeight)
-                    topSandPath.close()
+                        drawPath(topSandPath, color = PureWhite)
+                    }
 
-                    drawPath(topSandPath, color = PureWhite)
+                    // --- BOTTOM CHAMBER SAND (Volume-correct conical mound) ---
+                    val elapsedFraction = (1f - progress).coerceIn(0f, 1f)
+                    if (elapsedFraction > 0.005f) {
+                        val availableBottomHeight = h - neckBottomY
+                        // Mound height grows non-linearly with elapsed volume: sqrt gives natural conical accumulation
+                        val moundHeight = (availableBottomHeight * sqrt(elapsedFraction)).coerceAtMost(availableBottomHeight - 4f)
+                        val moundPeakY = h - moundHeight
+                        val baseSpread = (w * 0.48f * elapsedFraction.coerceAtLeast(0.35f)).coerceAtMost(w / 2f)
+
+                        bottomSandPath.reset()
+                        bottomSandPath.moveTo(0f, h)
+                        bottomSandPath.lineTo(w, h)
+                        bottomSandPath.lineTo(w, h - (moundHeight * 0.35f))
+                        // Curved conical mound peak
+                        bottomSandPath.quadraticTo(w / 2f, moundPeakY, 0f, h - (moundHeight * 0.35f))
+                        bottomSandPath.close()
+
+                        drawPath(bottomSandPath, color = PureWhite)
+                    }
+
+                    // --- FINE SAND GRAIN TEXTURE (Precomputed static noise) ---
+                    val grainColor = Color(0x28000000)
+                    for (i in PRECOMPUTED_GRAIN_X.indices) {
+                        val gx = PRECOMPUTED_GRAIN_X[i] * w
+                        val gyTop = neckTopY * PRECOMPUTED_GRAIN_Y[i]
+                        val gyBottom = neckBottomY + (h - neckBottomY) * PRECOMPUTED_GRAIN_Y[i]
+
+                        // Draw tiny grains within top sand
+                        if (progress > 0.05f) {
+                            drawCircle(grainColor, radius = 0.9.dp.toPx(), center = Offset(gx, gyTop))
+                        }
+                        // Draw tiny grains within bottom sand
+                        if (elapsedFraction > 0.05f) {
+                            drawCircle(grainColor, radius = 0.9.dp.toPx(), center = Offset(gx, gyBottom))
+                        }
+                    }
+
+                    // --- FALLING SAND STREAM & GRAINS IN NECK ---
+                    if (isRunning && progress > 0.01f) {
+                        val elapsedBottomHeight = (h - neckBottomY) * sqrt(elapsedFraction)
+                        val streamEndY = (h - elapsedBottomHeight).coerceIn(neckBottomY, h)
+
+                        // Central falling stream
+                        drawLine(
+                            color = PureWhite,
+                            start = Offset(w / 2f, neckTopY - 2f),
+                            end = Offset(w / 2f, streamEndY),
+                            strokeWidth = 1.8.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+
+                        // Fast looping falling grains (draw-phase clock, zero allocations)
+                        val now = SystemClock.elapsedRealtime()
+                        val loopProgress1 = (now % 300L) / 300f
+                        val loopProgress2 = ((now + 150L) % 300L) / 300f
+
+                        val grain1Y = neckTopY + (streamEndY - neckTopY) * loopProgress1
+                        val grain2Y = neckTopY + (streamEndY - neckTopY) * loopProgress2
+
+                        drawCircle(PureWhite, radius = 1.2.dp.toPx(), center = Offset(w / 2f - 1.2f, grain1Y))
+                        drawCircle(PureWhite, radius = 1.2.dp.toPx(), center = Offset(w / 2f + 1.2f, grain2Y))
+                    }
                 }
 
-                // 4. Sand in bottom chamber
-                val elapsedFraction = (1f - progress).coerceIn(0f, 1f)
-                if (elapsedFraction > 0.005f) {
-                    val sandHeightBottom = bulbHeight * elapsedFraction
-                    val sandBottomTopY = h - sandHeightBottom
-                    val fractionFromBottom = sandHeightBottom / bulbHeight
-                    val halfWidthAtSandSurface = (w / 2f) - (w / 2f - neckWidth / 2f) * (1f - fractionFromBottom)
-                    val leftX = (w / 2f) - halfWidthAtSandSurface.coerceAtLeast(neckWidth / 2f)
-                    val rightX = (w / 2f) + halfWidthAtSandSurface.coerceAtLeast(neckWidth / 2f)
-
-                    bottomSandPath.reset()
-                    bottomSandPath.moveTo(0f, h)
-                    bottomSandPath.lineTo(w, h)
-                    bottomSandPath.lineTo(rightX, sandBottomTopY)
-                    bottomSandPath.quadraticTo(w / 2f, sandBottomTopY - 4f, leftX, sandBottomTopY)
-                    bottomSandPath.close()
-
-                    drawPath(bottomSandPath, color = PureWhite)
-                }
-
-                // 5. Falling sand stream through neck
-                if (isRunning && progress > 0.01f) {
-                    val sandBottomTopY = h - (bulbHeight * (1f - progress))
-                    drawLine(
-                        color = PureWhite.copy(alpha = streamAnim),
-                        start = Offset(w / 2f, bulbHeight),
-                        end = Offset(w / 2f, sandBottomTopY.coerceAtMost(h)),
-                        strokeWidth = 2.dp.toPx(),
-                        cap = StrokeCap.Round
-                    )
-                }
+                // 4. Draw outer glass contour outline in subtle gray
+                drawPath(
+                    path = glassPath,
+                    color = BorderSubtle,
+                    style = Stroke(width = strokeThickness)
+                )
             }
         }
 
@@ -228,19 +283,21 @@ fun HourglassTimerTheme(
                     color = PureWhite,
                     letterSpacing = 2.sp,
                     maxLines = 1,
-                    softWrap = false
+                    softWrap = false,
+                    style = TextStyle(fontFeatureSettings = "tnum")
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
                     text = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted",
-                    fontSize = (dims.fontSize * 0.28f).coerceIn(10f, 16f).sp,
+                    fontSize = (dims.fontSize * 0.20f).coerceIn(11f, 16f).sp,
                     fontWeight = FontWeight.Medium,
                     color = SubtleGray,
                     letterSpacing = 2.sp,
                     maxLines = 1,
-                    softWrap = false
+                    softWrap = false,
+                    style = TextStyle(fontFeatureSettings = "tnum")
                 )
             }
         }
@@ -272,37 +329,65 @@ fun HourglassTimerTheme(
     }
 }
 
-@Preview(name = "Hourglass Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS (100%, 60%, 25%, 0% remaining)
+// -------------------------------------------------------------------------------------------------
+
+@Preview(name = "Hourglass 100% Remaining (Full)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 640)
 @Composable
-private fun HourglassTimerThemePortraitPreview() {
+private fun PreviewHourglass100() {
     ValueTimerTheme {
         HourglassTimerTheme(
-            remainingMillis = 180000L,
-            totalMillis = 360000L,
+            remainingMillis = 60_000L,
+            totalMillis = 60_000L,
             status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Hourglass 60% Remaining", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 640)
+@Composable
+private fun PreviewHourglass60() {
+    ValueTimerTheme {
+        HourglassTimerTheme(
+            remainingMillis = 36_000L,
+            totalMillis = 60_000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Hourglass 25% Remaining", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 640)
+@Composable
+private fun PreviewHourglass25() {
+    ValueTimerTheme {
+        HourglassTimerTheme(
+            remainingMillis = 15_000L,
+            totalMillis = 60_000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "Hourglass 0% Remaining (Drained)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 640)
+@Composable
+private fun PreviewHourglass0() {
+    ValueTimerTheme {
+        HourglassTimerTheme(
+            remainingMillis = 0L,
+            totalMillis = 60_000L,
+            status = TimerStatus.Finished
         )
     }
 }
 
 @Preview(name = "Hourglass Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
-private fun HourglassTimerThemeLandscapePreview() {
+private fun PreviewHourglassLandscape() {
     ValueTimerTheme {
         HourglassTimerTheme(
-            remainingMillis = 180000L,
-            totalMillis = 360000L,
-            status = TimerStatus.Running
-        )
-    }
-}
-
-@Preview(name = "Hourglass Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
-@Composable
-private fun HourglassTimerThemeTabletPreview() {
-    ValueTimerTheme {
-        HourglassTimerTheme(
-            remainingMillis = 180000L,
-            totalMillis = 360000L,
+            remainingMillis = 25_000L,
+            totalMillis = 60_000L,
             status = TimerStatus.Running
         )
     }

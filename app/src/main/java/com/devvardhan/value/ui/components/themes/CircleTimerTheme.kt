@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -90,47 +91,25 @@ fun CircleTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                if (isStopwatch) {
-                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
-                    val centisStr = ".${TimeUtils.formatStopwatchCentiseconds(stopwatchElapsedMillis)}"
-
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = mainUnits,
-                            fontSize = fontSize,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Light,
-                            color = PureWhite,
-                            letterSpacing = if (hasHours) 1.sp else 2.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Text(
-                            text = centisStr,
-                            fontSize = (fontSize.value * 0.40f).coerceIn(12f, 32f).sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Normal,
-                            color = SubtleGray,
-                            modifier = Modifier.padding(bottom = (fontSize.value * 0.08f).dp),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                val displayText = if (isStopwatch) {
+                    TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
                 } else {
-                    Text(
-                        text = formattedTime,
-                        fontSize = fontSize,
+                    formattedTime
+                }
+
+                Text(
+                    text = displayText,
+                    style = TextStyle(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Light,
-                        color = PureWhite,
+                        fontSize = fontSize,
                         letterSpacing = if (hasHours) 1.sp else 2.sp,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = PureWhite,
+                    maxLines = 1,
+                    softWrap = false
+                )
 
                 Spacer(modifier = Modifier.height((diameter.value * 0.025f).coerceIn(4f, 16f).dp))
 

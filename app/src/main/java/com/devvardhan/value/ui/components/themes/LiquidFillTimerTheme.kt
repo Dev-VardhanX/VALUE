@@ -1,11 +1,5 @@
 package com.devvardhan.value.ui.components.themes
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -15,15 +9,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -37,14 +36,15 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import kotlinx.coroutines.isActive
 import kotlin.math.PI
 import kotlin.math.sin
 
 /**
  * Theme 6: Liquid Fill.
- * Wide rounded container in landscape, tall in portrait, whose white liquid level lowers as time counts down.
- * Features a subtle sinusoidal wave on the surface with inverted digits on overlap.
- * Preallocates Path outside draw loop for 60fps rendering.
+ * Wide rounded container in landscape, tall in portrait, whose liquid level exactly equals remaining/total
+ * from the very first frame without delays or artificial intro transitions.
+ * Features an animated sinusoidal wave that freezes instantly when paused and resumes seamlessly.
  */
 @Composable
 fun LiquidFillTimerTheme(
@@ -53,6 +53,7 @@ fun LiquidFillTimerTheme(
     status: TimerStatus,
     modifier: Modifier = Modifier
 ) {
+    // Exact mathematical progress from frame 0 (no animate-in delay)
     val progress = ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
     val isRunning = status == TimerStatus.Running && remainingMillis > 0L
 
@@ -70,21 +71,22 @@ fun LiquidFillTimerTheme(
     // Preallocated Path to prevent object creation per draw pass
     val liquidPath = remember { Path() }
 
-    // Wave phase animation (active while running, frozen when paused)
-    val wavePhase = if (isRunning) {
-        val transition = rememberInfiniteTransition(label = "waveTransition")
-        val phase by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = (2 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 2600, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "wavePhase"
-        )
-        phase
-    } else {
-        0f
+    // Wave phase animation: advances continuously while running, FREEZES in place when paused,
+    // and resumes instantly from the exact frozen phase without snapping to 0.
+    var wavePhase by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(isRunning) {
+        if (isRunning) {
+            var lastFrameTime = withFrameNanos { it }
+            while (isActive) {
+                withFrameNanos { frameTime ->
+                    val dtSeconds = (frameTime - lastFrameTime) / 1_000_000_000f
+                    lastFrameTime = frameTime
+                    // 1 full cycle every 2.4 seconds
+                    val speed = (2f * PI.toFloat()) / 2.4f
+                    wavePhase = (wavePhase + speed * dtSeconds) % (2f * PI.toFloat())
+                }
+            }
+        }
     }
 
     BoxWithConstraints(
@@ -101,6 +103,14 @@ fun LiquidFillTimerTheme(
         val shape = RoundedCornerShape(cornerRadius)
         val fontSize = dims.fontSize.sp
 
+        val textStyle = TextStyle(
+            fontSize = fontSize,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Light,
+            letterSpacing = 2.sp,
+            fontFeatureSettings = "tnum"
+        )
+
         Box(
             modifier = Modifier
                 .size(width = containerWidth, height = containerHeight)
@@ -115,18 +125,15 @@ fun LiquidFillTimerTheme(
             ) {
                 Text(
                     text = formattedTime,
-                    fontSize = fontSize,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Light,
                     color = PureWhite,
-                    letterSpacing = 2.sp,
                     maxLines = 1,
-                    softWrap = false
+                    softWrap = false,
+                    style = textStyle
                 )
             }
 
             // Layer 2: White liquid fill with animated sinusoidal wave & inverted black digits
-            if (progress > 0.001f) {
+            if (progress > 0.0005f) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -135,13 +142,13 @@ fun LiquidFillTimerTheme(
                             val h = size.height
                             val baseSurfaceY = h * (1f - progress)
                             val amplitude = if (progress in 0.02f..0.98f) 7.dp.toPx() else 0f
-                            val waveLength = w * 0.7f
+                            val waveLength = w * 0.65f
 
                             liquidPath.reset()
                             liquidPath.moveTo(0f, h)
                             liquidPath.lineTo(0f, baseSurfaceY)
 
-                            // Sample wave surface across width
+                            // Sample wave surface across container width
                             val stepPx = 6f
                             var currentX = 0f
                             while (currentX <= w) {
@@ -162,13 +169,10 @@ fun LiquidFillTimerTheme(
                 ) {
                     Text(
                         text = formattedTime,
-                        fontSize = fontSize,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Light,
                         color = PureBlack,
-                        letterSpacing = 2.sp,
                         maxLines = 1,
-                        softWrap = false
+                        softWrap = false,
+                        style = textStyle
                     )
                 }
             }
@@ -176,14 +180,30 @@ fun LiquidFillTimerTheme(
     }
 }
 
-@Preview(name = "LiquidFill Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS
+// -------------------------------------------------------------------------------------------------
+
+@Preview(name = "LiquidFill Portrait 50%", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
 private fun LiquidFillTimerThemePortraitPreview() {
     ValueTimerTheme {
         LiquidFillTimerTheme(
-            remainingMillis = 65000L,
+            remainingMillis = 60000L,
             totalMillis = 120000L,
             status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "LiquidFill Paused", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Composable
+private fun LiquidFillTimerThemePausedPreview() {
+    ValueTimerTheme {
+        LiquidFillTimerTheme(
+            remainingMillis = 45000L,
+            totalMillis = 120000L,
+            status = TimerStatus.Paused
         )
     }
 }
@@ -193,7 +213,7 @@ private fun LiquidFillTimerThemePortraitPreview() {
 private fun LiquidFillTimerThemeLandscapePreview() {
     ValueTimerTheme {
         LiquidFillTimerTheme(
-            remainingMillis = 65000L,
+            remainingMillis = 80000L,
             totalMillis = 120000L,
             status = TimerStatus.Running
         )
@@ -205,7 +225,7 @@ private fun LiquidFillTimerThemeLandscapePreview() {
 private fun LiquidFillTimerThemeTabletPreview() {
     ValueTimerTheme {
         LiquidFillTimerTheme(
-            remainingMillis = 65000L,
+            remainingMillis = 90000L,
             totalMillis = 120000L,
             status = TimerStatus.Running
         )
