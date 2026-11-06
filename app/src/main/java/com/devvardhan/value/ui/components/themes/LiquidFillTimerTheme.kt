@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
@@ -51,7 +52,8 @@ fun LiquidFillTimerTheme(
     remainingMillis: Long,
     totalMillis: Long,
     status: TimerStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     // Exact mathematical progress from frame 0 (no animate-in delay)
     val progress = ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
@@ -93,8 +95,8 @@ fun LiquidFillTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val dims = remember(maxWidth.value, maxHeight.value) {
-            AdaptiveLayoutHelper.calculateLiquidFillDimensions(maxWidth.value, maxHeight.value)
+        val dims = remember(maxWidth.value, maxHeight.value, layoutMode) {
+            AdaptiveLayoutHelper.calculateLiquidFillDimensions(maxWidth.value, maxHeight.value, layoutMode)
         }
 
         val containerWidth = dims.containerWidth.dp

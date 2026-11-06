@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
@@ -37,14 +39,22 @@ fun MinimalCircularProgress(
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val strokePx = strokeWidth.toPx()
+            val diameter = minOf(this.size.width, this.size.height) - strokePx
+            if (diameter <= 0f) return@Canvas
+            val radius = diameter / 2f
+            val center = Offset(this.size.width / 2f, this.size.height / 2f)
+            val topLeft = Offset(center.x - radius, center.y - radius)
+            val arcSize = Size(diameter, diameter)
 
-            // Subtle dark background track
+            // Subtle dark background track (always a true circle)
             drawCircle(
                 color = InactiveTrack,
+                radius = radius,
+                center = center,
                 style = Stroke(width = strokePx)
             )
 
-            // Pure white active progress arc
+            // Pure white active progress arc (drawn inside the exact same square rect)
             val sweep = (progress.coerceIn(0f, 1f)) * 360f
             if (sweep > 0f) {
                 drawArc(
@@ -52,6 +62,8 @@ fun MinimalCircularProgress(
                     startAngle = -90f,
                     sweepAngle = sweep,
                     useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
                     style = Stroke(
                         width = strokePx,
                         cap = StrokeCap.Round
@@ -60,13 +72,12 @@ fun MinimalCircularProgress(
 
                 if (showLeadingDot) {
                     val angleRad = Math.toRadians((-90.0 + sweep)).toFloat()
-                    val radius = (this.size.width - strokePx) / 2f
-                    val dotX = (this.size.width / 2f) + radius * kotlin.math.cos(angleRad)
-                    val dotY = (this.size.height / 2f) + radius * kotlin.math.sin(angleRad)
+                    val dotX = center.x + radius * kotlin.math.cos(angleRad)
+                    val dotY = center.y + radius * kotlin.math.sin(angleRad)
                     drawCircle(
                         color = PureWhite,
                         radius = strokePx * 1.6f,
-                        center = androidx.compose.ui.geometry.Offset(dotX, dotY)
+                        center = Offset(dotX, dotY)
                     )
                 }
             }
@@ -75,4 +86,3 @@ fun MinimalCircularProgress(
         content()
     }
 }
-

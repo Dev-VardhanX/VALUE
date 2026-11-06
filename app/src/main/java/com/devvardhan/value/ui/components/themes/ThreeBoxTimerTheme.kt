@@ -29,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -39,10 +38,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.CellSizeHelper
 import com.devvardhan.value.core.ScoreboardDigitsHelper
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
+import com.devvardhan.value.ui.components.CentisecondsSlot
 import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
@@ -51,8 +52,8 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 3: Three Box (Scoreboard).
  * Three split stadium scoreboard panels for Hours, Minutes, and Seconds.
- * Centiseconds are decoupled into the dedicated CentisecondsSlot to prevent layout vibration.
- * Uniform tabular monospace digits (tnum) guarantee equal cell widths.
+ * Tabular monospace digits with exact mathematical cell sizing to prevent glyph clipping ("CC" bug).
+ * In Stopwatch mode: centiseconds sit on the same baseline directly to the right of the seconds panel.
  */
 @Composable
 fun ThreeBoxTimerTheme(
@@ -62,7 +63,8 @@ fun ThreeBoxTimerTheme(
     isStopwatch: Boolean = false,
     stopwatchElapsedMillis: Long = 0L,
     stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     val digits = remember(remainingMillis, isStopwatch, stopwatchElapsedMillis) {
         if (isStopwatch) {
@@ -76,24 +78,27 @@ fun ThreeBoxTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val dims = remember(maxWidth.value, maxHeight.value) {
-            AdaptiveLayoutHelper.calculateThreeBoxDimensions(
+        val dims = remember(maxWidth.value, maxHeight.value, isStopwatch, layoutMode) {
+            CellSizeHelper.calculateThreeBoxDimensions(
                 availableWidth = maxWidth.value,
-                availableHeight = maxHeight.value
+                availableHeight = maxHeight.value,
+                isStopwatch = isStopwatch,
+                layoutMode = layoutMode
             )
         }
 
         val panelWidth = dims.panelWidth.dp
         val panelHeight = dims.panelHeight.dp
-        val cellWidth = ((dims.panelWidth - 24f) / 2f).coerceAtLeast(28f).dp
-        val cellHeight = (dims.panelHeight - 40f).coerceAtLeast(40f).dp
+        val cellWidth = dims.cellWidth.dp
+        val cellHeight = dims.cellHeight.dp
         val fontSize = dims.fontSize.sp
-        val panelSpacing = (maxWidth.value * 0.02f).coerceIn(4f, 12f).dp
+        val colonWidth = dims.colonWidth.dp
+        val gap = dims.gap.dp
 
         Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 4.dp)
+            horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.padding(horizontal = 2.dp)
         ) {
             // Hours panel
             ScoreboardPanel(
@@ -108,7 +113,7 @@ fun ThreeBoxTimerTheme(
                 countUp = isStopwatch
             )
 
-            ScoreboardColon(panelHeight = panelHeight, fontSize = fontSize)
+            ScoreboardColon(panelHeight = panelHeight, fontSize = fontSize, colonWidth = colonWidth)
 
             // Minutes panel
             ScoreboardPanel(
@@ -123,7 +128,7 @@ fun ThreeBoxTimerTheme(
                 countUp = isStopwatch
             )
 
-            ScoreboardColon(panelHeight = panelHeight, fontSize = fontSize)
+            ScoreboardColon(panelHeight = panelHeight, fontSize = fontSize, colonWidth = colonWidth)
 
             // Seconds panel
             ScoreboardPanel(
@@ -137,16 +142,26 @@ fun ThreeBoxTimerTheme(
                 fontSize = fontSize,
                 countUp = isStopwatch
             )
+
+            if (isStopwatch) {
+                // Centiseconds slot sits directly after the seconds panel, aligned to digit baseline
+                CentisecondsSlot(
+                    elapsedMillis = stopwatchElapsedMillis,
+                    fontSize = (dims.fontSize * 0.40f).coerceIn(11f, 26f).sp,
+                    fixedWidthDp = dims.centisSlotWidth.dp,
+                    modifier = Modifier.padding(bottom = (dims.panelHeight * 0.12f).dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ScoreboardColon(panelHeight: Dp, fontSize: TextUnit) {
+private fun ScoreboardColon(panelHeight: Dp, fontSize: TextUnit, colonWidth: Dp) {
     Box(
         modifier = Modifier
             .height(panelHeight)
-            .padding(horizontal = 2.dp),
+            .width(colonWidth),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -173,17 +188,16 @@ private fun ScoreboardPanel(
     countUp: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val panelShape = RoundedCornerShape((panelWidth.value * 0.12f).coerceIn(10f, 22f).dp)
+    val panelShape = RoundedCornerShape((panelWidth.value * 0.12f).coerceIn(8f, 18f).dp)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
             .size(width = panelWidth, height = panelHeight)
-            .clip(panelShape)
-            .background(Color(0xFF0A0A0A))
+            .background(Color(0xFF0A0A0A), panelShape)
             .border(1.dp, BorderSubtle, panelShape)
-            .padding(horizontal = 6.dp, vertical = 8.dp)
+            .padding(horizontal = 5.dp, vertical = 6.dp)
     ) {
         // Secondary unit label (small, letter-spaced, ~15-20% of digit size)
         Row(
@@ -193,7 +207,7 @@ private fun ScoreboardPanel(
         ) {
             Text(
                 text = label,
-                fontSize = (fontSize.value * 0.20f).coerceIn(10f, 15f).sp,
+                fontSize = (fontSize.value * 0.20f).coerceIn(9f, 14f).sp,
                 fontWeight = FontWeight.SemiBold,
                 color = SubtleGray,
                 letterSpacing = 2.sp,
@@ -235,13 +249,12 @@ private fun ScoreboardDigitCell(
     fontSize: TextUnit,
     countUp: Boolean
 ) {
-    val cellShape = RoundedCornerShape(8.dp)
+    val cellShape = RoundedCornerShape(6.dp)
 
     Box(
         modifier = Modifier
             .size(width = cellWidth, height = cellHeight)
-            .clip(cellShape)
-            .background(Color(0xFF141414))
+            .background(Color(0xFF141414), cellShape)
             .border(0.5.dp, Color(0xFF282828), cellShape),
         contentAlignment = Alignment.Center
     ) {
@@ -294,6 +307,18 @@ private fun ScoreboardDigitCell(
 // -------------------------------------------------------------------------------------------------
 // PREVIEWS
 // -------------------------------------------------------------------------------------------------
+
+@Preview(name = "ThreeBox Stopwatch 360dp", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
+@Composable
+private fun ThreeBoxStopwatch360Preview() {
+    ValueTimerTheme {
+        ThreeBoxTimerTheme(
+            isStopwatch = true,
+            stopwatchElapsedMillis = 1710L, // 00:00:01.71
+            stopwatchStatus = StopwatchStatus.Running
+        )
+    }
+}
 
 @Preview(name = "ThreeBox Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable

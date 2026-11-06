@@ -74,18 +74,23 @@ object AdaptiveLayoutHelper {
 
     fun calculateHourglassDimensions(
         availableWidth: Float,
-        availableHeight: Float
+        availableHeight: Float,
+        layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
     ): HourglassDimensions {
-        val landscape = isLandscape(availableWidth, availableHeight, 1.2f)
+        val landscape = when (layoutMode) {
+            ThemeLayoutMode.AUTO -> isLandscape(availableWidth, availableHeight, 1.2f)
+            ThemeLayoutMode.PORTRAIT -> false
+            ThemeLayoutMode.LANDSCAPE -> true
+        }
         return if (landscape) {
-            val h = (availableHeight * 0.82f).coerceAtLeast(120f)
+            val h = (availableHeight * 0.82f).coerceAtLeast(100f)
             val w = h * 0.62f
-            val fontSize = (availableHeight * 0.22f).coerceIn(26f, 72f)
+            val fontSize = (availableHeight * 0.22f).coerceIn(20f, 72f)
             HourglassDimensions(width = w, height = h, fontSize = fontSize, isRowLayout = true)
         } else {
-            val h = (availableHeight * 0.46f).coerceIn(160f, 380f)
+            val h = (availableHeight * 0.48f).coerceIn(80f, 380f)
             val w = h * 0.62f
-            val fontSize = (availableWidth * 0.12f).coerceIn(28f, 54f)
+            val fontSize = (availableWidth * 0.12f).coerceIn(16f, 54f)
             HourglassDimensions(width = w, height = h, fontSize = fontSize, isRowLayout = false)
         }
     }
@@ -148,18 +153,23 @@ object AdaptiveLayoutHelper {
 
     fun calculateLiquidFillDimensions(
         availableWidth: Float,
-        availableHeight: Float
+        availableHeight: Float,
+        layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
     ): LiquidFillDimensions {
-        val landscape = isLandscape(availableWidth, availableHeight, 1.15f)
+        val landscape = when (layoutMode) {
+            ThemeLayoutMode.AUTO -> isLandscape(availableWidth, availableHeight, 1.15f)
+            ThemeLayoutMode.PORTRAIT -> false
+            ThemeLayoutMode.LANDSCAPE -> true
+        }
         return if (landscape) {
-            val w = (availableWidth * 0.88f).coerceAtLeast(200f)
-            val h = (availableHeight * 0.78f).coerceAtLeast(130f)
-            val fontSize = minOf(w * 0.12f, h * 0.30f).coerceIn(28f, 70f)
+            val w = (availableWidth * 0.88f).coerceAtLeast(140f)
+            val h = (availableHeight * 0.78f).coerceAtLeast(100f)
+            val fontSize = minOf(w * 0.12f, h * 0.30f).coerceIn(20f, 70f)
             LiquidFillDimensions(containerWidth = w, containerHeight = h, fontSize = fontSize)
         } else {
-            val w = (availableWidth * 0.86f).coerceAtLeast(200f)
-            val h = minOf(availableHeight * 0.60f, w * 1.15f).coerceAtLeast(180f)
-            val fontSize = (w * 0.14f).coerceIn(28f, 56f)
+            val w = (availableWidth * 0.86f).coerceAtLeast(140f)
+            val h = minOf(availableHeight * 0.60f, w * 1.15f).coerceAtLeast(120f)
+            val fontSize = (w * 0.14f).coerceIn(20f, 56f)
             LiquidFillDimensions(containerWidth = w, containerHeight = h, fontSize = fontSize)
         }
     }
@@ -175,15 +185,20 @@ object AdaptiveLayoutHelper {
 
     fun calculateDotGridMatrix(
         availableWidth: Float,
-        availableHeight: Float
+        availableHeight: Float,
+        layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
     ): DotGridMatrix {
-        val landscape = isLandscape(availableWidth, availableHeight, 1.15f)
+        val landscape = when (layoutMode) {
+            ThemeLayoutMode.AUTO -> isLandscape(availableWidth, availableHeight, 1.15f)
+            ThemeLayoutMode.PORTRAIT -> false
+            ThemeLayoutMode.LANDSCAPE -> true
+        }
         return if (landscape) {
             val columns = 12
             val rows = 5 // 12 * 5 = 60 dots
-            val gridWidth = (availableWidth * 0.52f).coerceAtLeast(160f)
-            val gridHeight = minOf(availableHeight * 0.75f, gridWidth * 0.55f).coerceAtLeast(100f)
-            val fontSize = (availableHeight * 0.20f).coerceIn(24f, 68f)
+            val gridWidth = (availableWidth * 0.52f).coerceAtLeast(140f)
+            val gridHeight = minOf(availableHeight * 0.75f, gridWidth * 0.55f).coerceAtLeast(80f)
+            val fontSize = (availableHeight * 0.20f).coerceIn(18f, 68f)
             DotGridMatrix(
                 columns = columns,
                 rows = rows,
@@ -195,9 +210,9 @@ object AdaptiveLayoutHelper {
         } else {
             val columns = 10
             val rows = 6 // 10 * 6 = 60 dots
-            val gridWidth = (availableWidth * 0.88f).coerceAtLeast(180f)
-            val gridHeight = minOf(availableHeight * 0.45f, gridWidth * 0.60f).coerceAtLeast(110f)
-            val fontSize = (availableWidth * 0.13f).coerceIn(28f, 58f)
+            val gridWidth = (availableWidth * 0.88f).coerceAtLeast(140f)
+            val gridHeight = minOf(availableHeight * 0.45f, gridWidth * 0.60f).coerceAtLeast(80f)
+            val fontSize = (availableWidth * 0.13f).coerceIn(20f, 58f)
             DotGridMatrix(
                 columns = columns,
                 rows = rows,

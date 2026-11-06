@@ -1,9 +1,5 @@
 package com.devvardhan.value.ui.screens
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,7 +21,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -35,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
@@ -84,15 +83,6 @@ fun StyleGalleryScreen(
 ) {
     val context = LocalContext.current
     val themes = remember(mode) { AdaptiveLayoutHelper.getGalleryStyles(mode) }
-
-    // System back handler
-    BackHandler {
-        if (canDismiss) {
-            onDismiss()
-        } else {
-            context.findActivity()?.finish()
-        }
-    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -163,25 +153,46 @@ fun StyleGalleryScreen(
 
             if (isLandscape) {
                 // Landscape: Horizontal scrollable row of cards
+                val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+                val centeredIndex by remember {
+                    derivedStateOf {
+                        val layoutInfo = lazyListState.layoutInfo
+                        val visibleItems = layoutInfo.visibleItemsInfo
+                        if (visibleItems.isEmpty()) initialIndex
+                        else {
+                            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                            visibleItems.minByOrNull { item ->
+                                val itemCenter = item.offset + item.size / 2
+                                kotlin.math.abs(itemCenter - viewportCenter)
+                            }?.index ?: initialIndex
+                        }
+                    }
+                }
+
+                val cardHeight = (availableHeight - 64.dp).coerceAtLeast(180.dp)
+                val cardWidth = (cardHeight * 0.88f).coerceIn(210.dp, 320.dp)
+
                 LazyRow(
+                    state = lazyListState,
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .height(cardHeight),
                     contentPadding = PaddingValues(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(themes, key = { it.name }) { themeItem ->
+                    itemsIndexed(themes, key = { _, item -> item.name }) { index, themeItem ->
                         val isSelected = themeItem == selectedTheme
+                        val isCentered = centeredIndex == index
                         StylePreviewCard(
                             theme = themeItem,
                             mode = mode,
                             isSelected = isSelected,
-                            isAnimated = true,
+                            isAnimated = isCentered,
                             onSelect = { onThemeSelected(themeItem) },
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .width((availableHeight.value * 0.95f).coerceIn(240f, 380f).dp)
+                                .width(cardWidth)
                         )
                     }
                 }
@@ -280,7 +291,7 @@ private fun StylePreviewCard(
                 indication = null,
                 onClick = onSelect
             )
-            .padding(16.dp),
+            .padding(14.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -288,72 +299,73 @@ private fun StylePreviewCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Live Preview Display Area
-            Box(
+            // Live Preview Display Area - Strictly 1:1 Square Box
+            BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(PureBlack)
-                    .padding(12.dp),
+                    .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                if (isStopwatchMode) {
-                    StopwatchVisual(
-                        theme = theme,
-                        elapsedMillis = demoMillis,
-                        status = if (isAnimated) StopwatchStatus.Running else StopwatchStatus.Paused
-                    )
-                } else {
-                    TimerVisual(
-                        theme = theme,
-                        remainingMillis = demoMillis,
-                        totalMillis = 10_000L,
-                        status = if (isAnimated) TimerStatus.Running else TimerStatus.Paused
-                    )
+                val previewSize = minOf(maxWidth, maxHeight)
+                Box(
+                    modifier = Modifier
+                        .size(previewSize)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(PureBlack)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isStopwatchMode) {
+                        StopwatchVisual(
+                            theme = theme,
+                            elapsedMillis = demoMillis,
+                            status = if (isAnimated) StopwatchStatus.Running else StopwatchStatus.Paused,
+                            layoutMode = ThemeLayoutMode.PORTRAIT
+                        )
+                    } else {
+                        TimerVisual(
+                            theme = theme,
+                            remainingMillis = demoMillis,
+                            totalMillis = 10_000L,
+                            status = if (isAnimated) TimerStatus.Running else TimerStatus.Paused,
+                            layoutMode = ThemeLayoutMode.PORTRAIT
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Style Title
             Text(
                 text = theme.displayName,
-                fontSize = 17.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = PureWhite,
-                letterSpacing = 1.sp
+                letterSpacing = 1.sp,
+                maxLines = 1
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Select Button
             if (isSelected) {
                 PrimaryPillButton(
                     text = stringResource(R.string.action_selected),
                     onClick = onSelect,
-                    modifier = Modifier.fillMaxWidth(0.85f),
-                    height = 48.dp
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    height = 44.dp
                 )
             } else {
                 SecondaryPillButton(
                     text = stringResource(R.string.action_select),
                     onClick = onSelect,
-                    modifier = Modifier.fillMaxWidth(0.85f),
-                    height = 48.dp
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    height = 44.dp
                 )
             }
         }
     }
-}
-
-private fun Context.findActivity(): Activity? {
-    var current = this
-    while (current is ContextWrapper) {
-        if (current is Activity) return current
-        current = current.baseContext
-    }
-    return null
 }
 
 // -------------------------------------------------------------------------------------------------

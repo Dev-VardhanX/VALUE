@@ -32,6 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.TimerStatus
@@ -69,7 +70,8 @@ fun HourglassTimerTheme(
     remainingMillis: Long,
     totalMillis: Long,
     status: TimerStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     val progress = ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
     val isRunning = status == TimerStatus.Running && remainingMillis > 0L
@@ -99,8 +101,8 @@ fun HourglassTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val dims = remember(maxWidth.value, maxHeight.value) {
-            AdaptiveLayoutHelper.calculateHourglassDimensions(maxWidth.value, maxHeight.value)
+        val dims = remember(maxWidth.value, maxHeight.value, layoutMode) {
+            AdaptiveLayoutHelper.calculateHourglassDimensions(maxWidth.value, maxHeight.value, layoutMode)
         }
 
         val hourglassCanvas = @Composable {

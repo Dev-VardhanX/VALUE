@@ -2,7 +2,6 @@ package com.devvardhan.value.ui.components.themes
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -27,9 +27,11 @@ import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.StopwatchFractionCalculator
 import com.devvardhan.value.core.ThemeFractionCalculator
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
+import com.devvardhan.value.ui.components.CentisecondsSlot
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
@@ -37,7 +39,7 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 7: Dot Grid.
  * A matrix of 60 dots.
- * For Stopwatch: one more dot lights up each second, resets every minute, with minutes in digits and baseline-aligned centiseconds.
+ * In Stopwatch mode: centiseconds sit on the same baseline directly next to the seconds.
  */
 @Composable
 fun DotGridTimerTheme(
@@ -47,7 +49,8 @@ fun DotGridTimerTheme(
     isStopwatch: Boolean = false,
     stopwatchElapsedMillis: Long = 0L,
     stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     val totalDots = 60
     val activeDots = if (isStopwatch) {
@@ -83,6 +86,12 @@ fun DotGridTimerTheme(
             AdaptiveLayoutHelper.calculateDotGridMatrix(maxWidth.value, maxHeight.value)
         }
 
+        val isRowLayout = when (layoutMode) {
+            ThemeLayoutMode.AUTO -> matrix.isRowLayout
+            ThemeLayoutMode.PORTRAIT -> false
+            ThemeLayoutMode.LANDSCAPE -> true
+        }
+
         val gridCanvas = @Composable {
             Canvas(
                 modifier = Modifier.size(width = matrix.gridWidth.dp, height = matrix.gridHeight.dp)
@@ -115,25 +124,48 @@ fun DotGridTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                val displayText = if (isStopwatch) {
-                    TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
+                if (isStopwatch) {
+                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
+                    val hasHours = stopwatchElapsedMillis >= 3_600_000L
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = mainUnits,
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Light,
+                                fontSize = matrix.fontSize.sp,
+                                letterSpacing = if (hasHours) 0.5.sp else 1.sp,
+                                fontFeatureSettings = "tnum"
+                            ),
+                            color = PureWhite,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        CentisecondsSlot(
+                            elapsedMillis = stopwatchElapsedMillis,
+                            fontSize = (matrix.fontSize * 0.40f).coerceIn(10f, 24f).sp,
+                            modifier = Modifier.padding(bottom = (matrix.fontSize * 0.06f).dp)
+                        )
+                    }
                 } else {
-                    formattedTime
+                    Text(
+                        text = formattedTime,
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Light,
+                            fontSize = matrix.fontSize.sp,
+                            letterSpacing = 2.sp,
+                            fontFeatureSettings = "tnum"
+                        ),
+                        color = PureWhite,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
-
-                Text(
-                    text = displayText,
-                    style = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Light,
-                        fontSize = matrix.fontSize.sp,
-                        letterSpacing = if (isStopwatch) 1.5.sp else 2.sp,
-                        fontFeatureSettings = "tnum"
-                    ),
-                    color = PureWhite,
-                    maxLines = 1,
-                    softWrap = false
-                )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -149,7 +181,7 @@ fun DotGridTimerTheme(
             }
         }
 
-        if (matrix.isRowLayout) {
+        if (isRowLayout) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
@@ -164,15 +196,31 @@ fun DotGridTimerTheme(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 16.dp),
+                    .padding(vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 gridCanvas()
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 digitsContent()
             }
         }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS
+// -------------------------------------------------------------------------------------------------
+
+@Preview(name = "DotGrid Stopwatch 360dp", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
+@Composable
+private fun DotGridStopwatch360Preview() {
+    ValueTimerTheme {
+        DotGridTimerTheme(
+            isStopwatch = true,
+            stopwatchElapsedMillis = 1710L, // 00:00:01.71
+            stopwatchStatus = StopwatchStatus.Running
+        )
     }
 }
 

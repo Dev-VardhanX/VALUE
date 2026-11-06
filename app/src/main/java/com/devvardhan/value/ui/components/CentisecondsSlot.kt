@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -17,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,15 +27,18 @@ import com.devvardhan.value.ui.theme.SubtleGray
 
 /**
  * Dedicated, jitter-free Centiseconds Slot.
- * Measures reference string ".00" ONCE to guarantee strictly immutable layout bounds.
- * Renders in the draw phase via Canvas.drawText() with tabular figures (tnum),
- * ensuring 0ms layout invalidations and zero vibration of adjacent UI components.
+ * - Sits directly to the right of seconds on the same baseline at ~40% main font size.
+ * - Measures reference string ".00" ONCE to guarantee strictly immutable layout bounds.
+ * - Renders in the draw phase via Canvas.drawText() with tabular figures (tnum),
+ *   ensuring 0ms layout invalidations and zero vibration of adjacent UI components.
  */
 @Composable
 fun CentisecondsSlot(
     elapsedMillis: Long,
+    fontSize: TextUnit,
     modifier: Modifier = Modifier,
-    fontSize: TextUnit = 22.sp
+    color: Color = SubtleGray,
+    fixedWidthDp: Dp? = null
 ) {
     val textMeasurer = rememberTextMeasurer()
     val centis = TimeUtils.formatStopwatchCentiseconds(elapsedMillis)
@@ -42,9 +47,9 @@ fun CentisecondsSlot(
         fontSize = fontSize,
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Normal,
-        color = SubtleGray,
+        color = color,
         fontFeatureSettings = "tnum",
-        textAlign = TextAlign.Center
+        textAlign = TextAlign.Start
     )
 
     // Measure reference ".00" once so width and height are strictly static
@@ -55,24 +60,24 @@ fun CentisecondsSlot(
         )
     }
 
-    val slotWidthDp = with(LocalDensity.current) { referenceLayout.size.width.toDp() + 6.dp }
-    val slotHeightDp = with(LocalDensity.current) { referenceLayout.size.height.toDp() }
+    val measuredWidthDp = with(LocalDensity.current) { referenceLayout.size.width.toDp() }
+    val slotWidth = fixedWidthDp ?: measuredWidthDp
+    val slotHeight = with(LocalDensity.current) { referenceLayout.size.height.toDp() }
 
     Canvas(
-        modifier = modifier.size(width = slotWidthDp, height = slotHeightDp)
+        modifier = modifier.size(width = slotWidth, height = slotHeight)
     ) {
         val currentLayout = textMeasurer.measure(
             text = ".$centis",
             style = textStyle
         )
 
-        // Center within strictly reserved slot bounds
-        val x = (size.width - currentLayout.size.width) / 2f
-        val y = (size.height - currentLayout.size.height) / 2f
+        // Align baseline to bottom of slot
+        val y = size.height - currentLayout.size.height
 
         drawText(
             textLayoutResult = currentLayout,
-            topLeft = Offset(x, y)
+            topLeft = Offset(0f, y)
         )
     }
 }

@@ -28,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -36,22 +35,24 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.CellSizeHelper
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
-import com.devvardhan.value.ui.theme.DarkGray
+import com.devvardhan.value.ui.components.CentisecondsSlot
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 5: Flip Clock.
- * Classic split-flap cards for Hours, Minutes, and Seconds with a center divider line
- * and smooth 3D rotation flip animations when digits change.
- * For Stopwatch: shows flap animation counting up with baseline-aligned centiseconds.
+ * Classic split-flap cards for Hours, Minutes, and Seconds with a center divider line.
+ * Uses exact responsive cell sizing so every card is identical and the 6th card is never cut off.
+ * In Stopwatch mode: centiseconds sit on the same baseline directly to the right of the seconds cards.
  */
 @Composable
 fun FlipClockTimerTheme(
@@ -61,7 +62,8 @@ fun FlipClockTimerTheme(
     isStopwatch: Boolean = false,
     stopwatchElapsedMillis: Long = 0L,
     stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     val totalSeconds = if (isStopwatch) {
         maxOf(0L, stopwatchElapsedMillis) / 1000L
@@ -77,42 +79,57 @@ fun FlipClockTimerTheme(
     val mStr = TimeUtils.formatTwoDigits(minutes)
     val sStr = TimeUtils.formatTwoDigits(seconds)
 
+    val showHours = !isStopwatch || hours > 0
+    val cardCount = if (showHours) 6 else 4
+
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val dims = remember(maxWidth.value, maxHeight.value) {
-            AdaptiveLayoutHelper.calculateFlipClockDimensions(maxWidth.value, maxHeight.value)
+        val dims = remember(maxWidth.value, maxHeight.value, cardCount, isStopwatch, layoutMode) {
+            CellSizeHelper.calculateFlipClockDimensions(
+                availableWidth = maxWidth.value,
+                availableHeight = maxHeight.value,
+                cardCount = cardCount,
+                isStopwatch = isStopwatch,
+                layoutMode = layoutMode
+            )
         }
 
         val cardWidth = dims.cardWidth.dp
         val cardHeight = dims.cardHeight.dp
         val fontSize = dims.fontSize.sp
-        val spacing = (cardWidth.value * 0.08f).coerceIn(3f, 8f).dp
-        val showHours = !isStopwatch || hours > 0
+        val spacing = dims.gap.dp
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 4.dp)
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.padding(horizontal = 2.dp)
         ) {
             if (showHours) {
-                if (hours >= 10 || !isStopwatch) {
-                    FlipDigitCard(digit = hStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
-                }
+                FlipDigitCard(digit = hStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
                 FlipDigitCard(digit = hStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
-                FlipColon(height = cardHeight)
+                FlipColon(height = cardHeight, width = dims.colonWidth.dp)
             }
 
             // Minutes
             FlipDigitCard(digit = mStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
             FlipDigitCard(digit = mStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
 
-            FlipColon(height = cardHeight)
+            FlipColon(height = cardHeight, width = dims.colonWidth.dp)
 
             // Seconds
             FlipDigitCard(digit = sStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
             FlipDigitCard(digit = sStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+
+            if (isStopwatch) {
+                CentisecondsSlot(
+                    elapsedMillis = stopwatchElapsedMillis,
+                    fontSize = (dims.fontSize * 0.40f).coerceIn(11f, 26f).sp,
+                    fixedWidthDp = dims.centisSlotWidth.dp,
+                    modifier = Modifier.padding(bottom = (dims.cardHeight * 0.12f).dp)
+                )
+            }
         }
     }
 }
@@ -122,7 +139,7 @@ private fun FlipDigitCard(
     digit: Char,
     width: Dp,
     height: Dp,
-    fontSize: androidx.compose.ui.unit.TextUnit
+    fontSize: TextUnit
 ) {
     var previousDigit by remember { mutableStateOf(digit) }
     var displayedDigit by remember { mutableStateOf(digit) }
@@ -141,13 +158,12 @@ private fun FlipDigitCard(
         }
     }
 
-    val cardShape = RoundedCornerShape((width.value * 0.14f).coerceIn(6f, 14f).dp)
+    val cardShape = RoundedCornerShape((width.value * 0.12f).coerceIn(4f, 10f).dp)
 
     Box(
         modifier = Modifier
             .size(width = width, height = height)
-            .clip(cardShape)
-            .background(Color(0xFF0F0F0F))
+            .background(Color(0xFF0F0F0F), cardShape)
             .border(1.dp, Color(0xFF262626), cardShape)
             .graphicsLayer {
                 cameraDistance = 16f * density
@@ -183,11 +199,11 @@ private fun FlipDigitCard(
 }
 
 @Composable
-private fun FlipColon(height: Dp) {
+private fun FlipColon(height: Dp, width: Dp = 8.dp) {
     Column(
         modifier = Modifier
             .height(height)
-            .padding(horizontal = 2.dp),
+            .width(width),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -196,11 +212,27 @@ private fun FlipColon(height: Dp) {
                 .size(4.dp)
                 .background(SubtleGray, RoundedCornerShape(2.dp))
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Box(
             modifier = Modifier
                 .size(4.dp)
                 .background(SubtleGray, RoundedCornerShape(2.dp))
+        )
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS
+// -------------------------------------------------------------------------------------------------
+
+@Preview(name = "Flip Clock Stopwatch 360dp", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
+@Composable
+private fun FlipClockStopwatch360Preview() {
+    ValueTimerTheme {
+        FlipClockTimerTheme(
+            isStopwatch = true,
+            stopwatchElapsedMillis = 1710L, // 00:00:01.71
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }

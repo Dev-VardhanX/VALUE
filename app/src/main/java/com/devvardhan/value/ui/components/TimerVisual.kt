@@ -4,6 +4,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.themes.CircleTimerTheme
@@ -23,7 +24,8 @@ fun TimerVisual(
     remainingMillis: Long,
     totalMillis: Long,
     status: TimerStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     Crossfade(
         targetState = theme,
@@ -35,45 +37,51 @@ fun TimerVisual(
             TimerTheme.CIRCLE -> CircleTimerTheme(
                 remainingMillis = remainingMillis,
                 totalMillis = totalMillis,
-                status = status
+                status = status,
+                layoutMode = layoutMode
             )
 
             TimerTheme.HOURGLASS -> HourglassTimerTheme(
                 remainingMillis = remainingMillis,
                 totalMillis = totalMillis,
-                status = status
+                status = status,
+                layoutMode = layoutMode
             )
 
             TimerTheme.THREE_BOX -> ThreeBoxTimerTheme(
                 remainingMillis = remainingMillis,
                 totalMillis = totalMillis,
-                status = status
+                status = status,
+                layoutMode = layoutMode
             )
 
             TimerTheme.CONCENTRIC_RINGS -> ConcentricRingsTimerTheme(
                 remainingMillis = remainingMillis,
                 totalMillis = totalMillis,
-                status = status
+                status = status,
+                layoutMode = layoutMode
             )
 
             TimerTheme.FLIP_CLOCK -> FlipClockTimerTheme(
                 remainingMillis = remainingMillis,
                 totalMillis = totalMillis,
-                status = status
+                status = status,
+                layoutMode = layoutMode
             )
 
             TimerTheme.LIQUID_FILL -> LiquidFillTimerTheme(
                 remainingMillis = remainingMillis,
                 totalMillis = totalMillis,
-                status = status
+                status = status,
+                layoutMode = layoutMode
             )
 
             TimerTheme.DOT_GRID -> DotGridTimerTheme(
                 remainingMillis = remainingMillis,
                 totalMillis = totalMillis,
-                status = status
+                status = status,
+                layoutMode = layoutMode
             )
         }
     }
 }
-

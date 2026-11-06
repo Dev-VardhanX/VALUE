@@ -1,17 +1,22 @@
 package com.devvardhan.value
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,23 +24,37 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.BackAction
+import com.devvardhan.value.core.BackPressHandlerLogic
 import com.devvardhan.value.core.StopwatchPreferencesRepository
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.StopwatchStatus
@@ -48,7 +67,9 @@ import com.devvardhan.value.ui.screens.RunningTimerScreen
 import com.devvardhan.value.ui.screens.SetTimerScreen
 import com.devvardhan.value.ui.screens.StopwatchScreen
 import com.devvardhan.value.ui.screens.StyleGalleryScreen
+import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
+import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 import com.devvardhan.value.viewmodel.StopwatchViewModel
 import com.devvardhan.value.viewmodel.TimerViewModel
@@ -124,6 +145,58 @@ fun ValueApp(
     // Navigation state between Style Gallery and Main App
     var currentScreen by rememberSaveable { mutableStateOf<AppScreen?>(null) }
 
+    var lastBackPressTime by remember { mutableLongStateOf(0L) }
+    var showExitToast by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showExitToast, lastBackPressTime) {
+        if (showExitToast) {
+            kotlinx.coroutines.delay(2000L)
+            showExitToast = false
+        }
+    }
+
+    val isFullscreen = (appMode == AppMode.STOPWATCH && stopwatchState.isFullscreen) ||
+        (appMode == AppMode.TIMER && timerState.isFullscreen && timerState.status != TimerStatus.Finished)
+    val isGalleryOpen = currentScreen == AppScreen.GALLERY
+    val isFirstLaunchGallery = hasChosenStyle != true
+    val isTimerRunningOrPaused = timerState.status == TimerStatus.Running || timerState.status == TimerStatus.Paused
+    val isStopwatchRunningOrPaused = stopwatchState.status == StopwatchStatus.Running || stopwatchState.status == StopwatchStatus.Paused
+
+    BackHandler {
+        val (action, newBackTime) = BackPressHandlerLogic.decideBackAction(
+            isFullscreen = isFullscreen,
+            isGalleryOpen = isGalleryOpen,
+            isFirstLaunchGallery = isFirstLaunchGallery,
+            isTimerRunningOrPaused = isTimerRunningOrPaused,
+            isStopwatchRunningOrPaused = isStopwatchRunningOrPaused,
+            lastBackPressTimeMs = lastBackPressTime,
+            currentTimeMs = System.currentTimeMillis()
+        )
+        lastBackPressTime = newBackTime
+
+        when (action) {
+            BackAction.EXIT_FULLSCREEN -> {
+                if (appMode == AppMode.STOPWATCH) {
+                    stopwatchViewModel.setFullscreen(false)
+                } else {
+                    timerViewModel.setFullscreen(false)
+                }
+            }
+            BackAction.DISMISS_GALLERY -> {
+                currentScreen = AppScreen.MAIN
+            }
+            BackAction.FINISH_ACTIVITY -> {
+                context.findActivity()?.finish()
+            }
+            BackAction.MOVE_TO_BACK -> {
+                context.findActivity()?.moveTaskToBack(true)
+            }
+            BackAction.SHOW_TOAST_AGAIN_TO_EXIT -> {
+                showExitToast = true
+            }
+        }
+    }
+
     // First-launch determination: auto-open gallery on very first launch unless something is running
     LaunchedEffect(hasChosenStyle, isTimerRunning, isStopwatchRunning) {
         if (currentScreen == null && hasChosenStyle != null) {
@@ -173,22 +246,23 @@ fun ValueApp(
             .background(PureBlack),
         color = PureBlack
     ) {
-        // Mode switching handler (persists mode without touching running state)
-        val onModeChange: (AppMode) -> Unit = { newMode ->
-            appMode = newMode
-            scope.launch {
-                preferencesRepo.saveAppMode(newMode)
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Mode switching handler (persists mode without touching running state)
+            val onModeChange: (AppMode) -> Unit = { newMode ->
+                appMode = newMode
+                scope.launch {
+                    preferencesRepo.saveAppMode(newMode)
+                }
             }
-        }
 
-        AnimatedContent(
-            targetState = currentScreen ?: AppScreen.MAIN,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(280)) togetherWith fadeOut(animationSpec = tween(220))
-            },
-            label = "GalleryMainTransition",
-            modifier = Modifier.fillMaxSize()
-        ) { activeScreen ->
+            AnimatedContent(
+                targetState = currentScreen ?: AppScreen.MAIN,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(280)) togetherWith fadeOut(animationSpec = tween(220))
+                },
+                label = "GalleryMainTransition",
+                modifier = Modifier.fillMaxSize()
+            ) { activeScreen ->
             when (activeScreen) {
                 AppScreen.GALLERY -> {
                     val activeTheme = if (appMode == AppMode.STOPWATCH) {
@@ -332,5 +406,40 @@ fun ValueApp(
                 }
             }
         }
+
+            // Minimal floating monochrome pill for double-back exit confirmation
+            AnimatedVisibility(
+                visible = showExitToast,
+                enter = fadeIn(animationSpec = tween(150)),
+                exit = fadeOut(animationSpec = tween(150)),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFF1E1E1E), shape = RoundedCornerShape(20.dp))
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(20.dp))
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.press_back_again_to_exit),
+                        color = PureWhite,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 0.3.sp
+                    )
+                }
+            }
+        }
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var current = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
 }

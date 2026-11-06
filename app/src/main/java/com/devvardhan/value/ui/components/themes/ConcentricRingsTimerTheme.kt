@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -29,11 +30,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.CellSizeHelper
 import com.devvardhan.value.core.StopwatchFractionCalculator
 import com.devvardhan.value.core.ThemeFractionCalculator
+import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
+import com.devvardhan.value.ui.components.CentisecondsSlot
 import com.devvardhan.value.ui.theme.InactiveTrack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
@@ -42,7 +46,8 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 4: Concentric Rings.
  * Outer = Hours, Middle = Minutes, Inner = Seconds.
- * In Stopwatch mode: all rings fill UP clockwise. Digits are cleanly scaled to prevent inner ring clipping.
+ * In Stopwatch mode: all rings fill UP clockwise. Zero sweep threshold prevents false round-cap dots at 0.
+ * Centiseconds sit on the same baseline directly next to the seconds.
  */
 @Composable
 fun ConcentricRingsTimerTheme(
@@ -52,7 +57,8 @@ fun ConcentricRingsTimerTheme(
     isStopwatch: Boolean = false,
     stopwatchElapsedMillis: Long = 0L,
     stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     val secFraction = if (isStopwatch) {
         StopwatchFractionCalculator.calculateSecondsFraction(stopwatchElapsedMillis)
@@ -102,11 +108,12 @@ fun ConcentricRingsTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val geometry = remember(maxWidth.value, maxHeight.value) {
+        val padding = if (layoutMode == ThemeLayoutMode.PORTRAIT) 16f else 28f
+        val geometry = remember(maxWidth.value, maxHeight.value, padding) {
             AdaptiveLayoutHelper.calculateConcentricRingsGeometry(
                 width = maxWidth.value,
                 height = maxHeight.value,
-                padding = 32f
+                padding = padding
             )
         }
 
@@ -114,8 +121,12 @@ fun ConcentricRingsTimerTheme(
         val strokeWidth = geometry.strokeWidth.dp
         val ringGap = geometry.ringGap.dp
         val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
-        val fontFactor = if (hasHours) 0.16f else 0.20f
-        val fontSize = (geometry.innerDiameter * fontFactor).coerceIn(16f, 56f).sp
+
+        val fontSize = CellSizeHelper.calculateInnerRingFontSize(
+            innerDiameter = geometry.innerDiameter,
+            hasHours = hasHours,
+            isStopwatch = isStopwatch
+        ).sp
 
         Box(
             modifier = Modifier.size(diameter),
@@ -144,7 +155,8 @@ fun ConcentricRingsTimerTheme(
                         style = Stroke(width = strokePx)
                     )
                     val hrSweep = hrFraction * 360f
-                    if (hrSweep > 0f) {
+                    // Minimum sweep threshold: do not draw round-cap dot at 0
+                    if (hrSweep >= 1.0f) {
                         drawArc(
                             color = PureWhite,
                             startAngle = -90f,
@@ -171,7 +183,8 @@ fun ConcentricRingsTimerTheme(
                         style = Stroke(width = strokePx)
                     )
                     val minSweep = minFraction * 360f
-                    if (minSweep > 0f) {
+                    // Minimum sweep threshold: do not draw round-cap dot at 0
+                    if (minSweep >= 1.0f) {
                         drawArc(
                             color = PureWhite,
                             startAngle = -90f,
@@ -198,7 +211,8 @@ fun ConcentricRingsTimerTheme(
                         style = Stroke(width = strokePx)
                     )
                     val secSweep = secFraction * 360f
-                    if (secSweep > 0f) {
+                    // Minimum sweep threshold: do not draw round-cap dot at 0
+                    if (secSweep >= 1.0f) {
                         drawArc(
                             color = PureWhite,
                             startAngle = -90f,
@@ -217,40 +231,78 @@ fun ConcentricRingsTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                val displayText = if (isStopwatch) {
-                    TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
+                if (isStopwatch) {
+                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = mainUnits,
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Light,
+                                fontSize = fontSize,
+                                letterSpacing = if (hasHours) 0.5.sp else 1.sp,
+                                fontFeatureSettings = "tnum"
+                            ),
+                            color = PureWhite,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        CentisecondsSlot(
+                            elapsedMillis = stopwatchElapsedMillis,
+                            fontSize = (fontSize.value * 0.40f).coerceIn(10f, 22f).sp,
+                            modifier = Modifier.padding(bottom = (fontSize.value * 0.06f).dp)
+                        )
+                    }
                 } else {
-                    formattedTime
+                    Text(
+                        text = formattedTime,
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Light,
+                            fontSize = fontSize,
+                            letterSpacing = if (hasHours) 0.5.sp else 1.sp,
+                            fontFeatureSettings = "tnum"
+                        ),
+                        color = PureWhite,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
 
-                Text(
-                    text = displayText,
-                    style = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Light,
-                        fontSize = fontSize,
-                        letterSpacing = if (hasHours) 0.5.sp else 1.sp,
-                        fontFeatureSettings = "tnum"
-                    ),
-                    color = PureWhite,
-                    maxLines = 1,
-                    softWrap = false
-                )
-
                 if (isPaused) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "PAUSED",
-                        fontSize = (fontSize.value * 0.28f).coerceIn(9f, 13f).sp,
+                        fontSize = (geometry.innerDiameter * 0.08f).coerceIn(9f, 12f).sp,
                         fontWeight = FontWeight.Medium,
                         color = SubtleGray,
-                        letterSpacing = 2.sp,
+                        letterSpacing = 1.5.sp,
                         maxLines = 1,
                         softWrap = false
                     )
                 }
             }
         }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS
+// -------------------------------------------------------------------------------------------------
+
+@Preview(name = "Concentric Stopwatch 360dp", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
+@Composable
+private fun ConcentricStopwatch360Preview() {
+    ValueTimerTheme {
+        ConcentricRingsTimerTheme(
+            isStopwatch = true,
+            stopwatchElapsedMillis = 1710L, // 00:00:01.71
+            stopwatchStatus = StopwatchStatus.Running
+        )
     }
 }
 
