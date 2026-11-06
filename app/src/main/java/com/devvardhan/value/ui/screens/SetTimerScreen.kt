@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,7 +24,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
+import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.TimerTheme
+import com.devvardhan.value.ui.components.ModeSwitch
 import com.devvardhan.value.ui.components.PrimaryPillButton
 import com.devvardhan.value.ui.components.ThemeSelectorRow
 import com.devvardhan.value.ui.components.WheelTimePicker
@@ -35,8 +38,7 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Screen 1: Set Timer screen.
  * Allows user to pick Hours, Minutes, and Seconds via wheel/tappable pickers,
- * choose visual countdown themes, and start the countdown.
- * Automatically adapts between single-column portrait and dual-column landscape.
+ * choose visual countdown themes, switch modes, and start the countdown.
  */
 @Composable
 fun SetTimerScreen(
@@ -49,6 +51,9 @@ fun SetTimerScreen(
     onSecondsChange: (Int) -> Unit,
     onThemeChange: (TimerTheme) -> Unit,
     onStartClick: () -> Unit,
+    currentMode: AppMode = AppMode.TIMER,
+    isStopwatchRunning: Boolean = false,
+    onModeSelected: (AppMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val totalSeconds = hours * 3600L + minutes * 60L + seconds
@@ -87,7 +92,7 @@ fun SetTimerScreen(
                     )
                 }
 
-                // Right side: Header, theme selector, start button
+                // Right side: Mode switch, Header, theme selector, start button
                 Column(
                     modifier = Modifier
                         .weight(0.9f)
@@ -96,15 +101,15 @@ fun SetTimerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
+                    ModeSwitch(
+                        currentMode = currentMode,
+                        isTimerRunning = false,
+                        isStopwatchRunning = isStopwatchRunning,
+                        onModeSelected = onModeSelected,
+                        modifier = Modifier.width(180.dp)
+                    )
+
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SubtleGray,
-                            letterSpacing = 4.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = stringResource(R.string.set_timer_title),
                             fontSize = 20.sp,
@@ -129,17 +134,20 @@ fun SetTimerScreen(
                 }
             }
         } else {
-            // Portrait layout: Header at top, pickers in center, themes and start at bottom
+            // Portrait layout: Header with ModeSwitch at top, pickers in center, themes and start at bottom
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 24.dp),
+                    .padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(top = 12.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = stringResource(R.string.app_name),
@@ -148,7 +156,20 @@ fun SetTimerScreen(
                         color = SubtleGray,
                         letterSpacing = 4.sp
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+
+                    ModeSwitch(
+                        currentMode = currentMode,
+                        isTimerRunning = false,
+                        isStopwatchRunning = isStopwatchRunning,
+                        onModeSelected = onModeSelected,
+                        modifier = Modifier.width(180.dp)
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
                     Text(
                         text = stringResource(R.string.set_timer_title),
                         fontSize = 22.sp,
@@ -165,7 +186,7 @@ fun SetTimerScreen(
                     onHoursChange = onHoursChange,
                     onMinutesChange = onMinutesChange,
                     onSecondsChange = onSecondsChange,
-                    modifier = Modifier.padding(vertical = 12.dp)
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
 
                 Column(
@@ -204,43 +225,9 @@ private fun SetTimerScreenPortraitPreview() {
             onMinutesChange = {},
             onSecondsChange = {},
             onThemeChange = {},
-            onStartClick = {}
-        )
-    }
-}
-
-@Preview(name = "SetTimer Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
-@Composable
-private fun SetTimerScreenLandscapePreview() {
-    ValueTimerTheme {
-        SetTimerScreen(
-            hours = 0,
-            minutes = 25,
-            seconds = 0,
-            selectedTheme = TimerTheme.CIRCLE,
-            onHoursChange = {},
-            onMinutesChange = {},
-            onSecondsChange = {},
-            onThemeChange = {},
-            onStartClick = {}
-        )
-    }
-}
-
-@Preview(name = "SetTimer Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
-@Composable
-private fun SetTimerScreenTabletPreview() {
-    ValueTimerTheme {
-        SetTimerScreen(
-            hours = 1,
-            minutes = 30,
-            seconds = 0,
-            selectedTheme = TimerTheme.CIRCLE,
-            onHoursChange = {},
-            onMinutesChange = {},
-            onSecondsChange = {},
-            onThemeChange = {},
-            onStartClick = {}
+            onStartClick = {},
+            currentMode = AppMode.TIMER,
+            isStopwatchRunning = true
         )
     }
 }

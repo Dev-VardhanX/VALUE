@@ -193,5 +193,50 @@ object AppIcons {
             }
         }.build()
     }
+
+    val Stopwatch: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Stopwatch",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                // Top crown
+                moveTo(9f, 1f)
+                horizontalLineTo(15f)
+                verticalLineTo(3f)
+                horizontalLineTo(9f)
+                close()
+                // Main body
+                moveTo(13f, 3f)
+                horizontalLineTo(11f)
+                verticalLineTo(5.05f)
+                curveTo(6.94f, 5.51f, 3.5f, 9.35f, 3.5f, 14f)
+                curveTo(3.5f, 18.69f, 7.31f, 22.5f, 12f, 22.5f)
+                reflectiveCurveTo(20.5f, 18.69f, 20.5f, 14f)
+                curveTo(20.5f, 9.35f, 17.06f, 5.51f, 13f, 5.05f)
+                verticalLineTo(3f)
+                close()
+                // Inner dial cutout
+                moveTo(12f, 20.5f)
+                curveTo(8.41f, 20.5f, 5.5f, 17.59f, 5.5f, 14f)
+                reflectiveCurveTo(8.41f, 7.5f, 12f, 7.5f)
+                reflectiveCurveTo(18.5f, 10.41f, 18.5f, 14f)
+                reflectiveCurveTo(15.59f, 20.5f, 12f, 20.5f)
+                close()
+                // Hand indicator
+                moveTo(13f, 10f)
+                horizontalLineTo(11f)
+                verticalLineTo(15f)
+                lineTo(15.25f, 17.52f)
+                lineTo(16f, 16.29f)
+                lineTo(13f, 14.5f)
+                verticalLineTo(10f)
+                close()
+            }
+        }.build()
+    }
 }
 

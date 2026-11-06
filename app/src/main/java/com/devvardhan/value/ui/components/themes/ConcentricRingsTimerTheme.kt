@@ -26,8 +26,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.StopwatchFractionCalculator
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
+import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.ui.theme.InactiveTrack
 import com.devvardhan.value.ui.theme.PureWhite
@@ -36,32 +38,62 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 4: Concentric Rings.
- * Three thin concentric rings for Hours (outer), Minutes (middle), and Seconds (inner).
- * Adapts with square-fit sizing in portrait, landscape, and tablet, guaranteeing digits
- * always fit inside the inner ring without overlap.
+ * Outer = Hours, Middle = Minutes, Inner = Seconds.
+ * In Stopwatch mode: all rings fill UP clockwise (hours cycles over 12h, min over 60m, sec over 60s).
  */
 @Composable
 fun ConcentricRingsTimerTheme(
-    remainingMillis: Long,
-    totalMillis: Long,
-    status: TimerStatus,
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier
 ) {
-    val secFraction = ThemeFractionCalculator.calculateSecondsFraction(remainingMillis)
-    val minFraction = ThemeFractionCalculator.calculateMinutesFraction(remainingMillis)
-    val hrFraction = ThemeFractionCalculator.calculateHoursFraction(remainingMillis, totalMillis)
+    val secFraction = if (isStopwatch) {
+        StopwatchFractionCalculator.calculateSecondsFraction(stopwatchElapsedMillis)
+    } else {
+        ThemeFractionCalculator.calculateSecondsFraction(remainingMillis)
+    }
 
-    val displayedSeconds by remember(remainingMillis) {
+    val minFraction = if (isStopwatch) {
+        StopwatchFractionCalculator.calculateMinutesFraction(stopwatchElapsedMillis)
+    } else {
+        ThemeFractionCalculator.calculateMinutesFraction(remainingMillis)
+    }
+
+    val hrFraction = if (isStopwatch) {
+        StopwatchFractionCalculator.calculateHoursFraction(stopwatchElapsedMillis)
+    } else {
+        ThemeFractionCalculator.calculateHoursFraction(remainingMillis, totalMillis)
+    }
+
+    val displayedSeconds by remember(if (isStopwatch) stopwatchElapsedMillis else remainingMillis) {
         derivedStateOf {
-            if (remainingMillis <= 0L) 0L else (remainingMillis + 999L) / 1000L
+            if (isStopwatch) {
+                stopwatchElapsedMillis / 1000L
+            } else {
+                if (remainingMillis <= 0L) 0L else (remainingMillis + 999L) / 1000L
+            }
         }
     }
-    val formattedTime by remember(displayedSeconds) {
+
+    val formattedTime by remember(displayedSeconds, isStopwatch, stopwatchElapsedMillis) {
         derivedStateOf {
-            TimeUtils.formatHmsFromSeconds(displayedSeconds)
+            if (isStopwatch) {
+                TimeUtils.formatStopwatchAdaptive(stopwatchElapsedMillis)
+            } else {
+                TimeUtils.formatHmsFromSeconds(displayedSeconds)
+            }
         }
     }
-    val isPaused = status == TimerStatus.Paused
+
+    val isPaused = if (isStopwatch) {
+        stopwatchStatus == StopwatchStatus.Paused
+    } else {
+        status == TimerStatus.Paused
+    }
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -78,7 +110,9 @@ fun ConcentricRingsTimerTheme(
         val diameter = geometry.diameter.dp
         val strokeWidth = geometry.strokeWidth.dp
         val ringGap = geometry.ringGap.dp
-        val fontSize = geometry.maxFontSize.sp
+        val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
+        val fontFactor = if (hasHours) 0.18f else 0.22f
+        val fontSize = (geometry.innerDiameter * fontFactor).coerceIn(16f, 64f).sp
 
         Box(
             modifier = Modifier.size(diameter),
@@ -175,7 +209,7 @@ fun ConcentricRingsTimerTheme(
                 }
             }
 
-            // Centered remaining time (positioned inside inner ring)
+            // Centered digits
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -186,7 +220,7 @@ fun ConcentricRingsTimerTheme(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Light,
                     color = PureWhite,
-                    letterSpacing = 1.5.sp,
+                    letterSpacing = if (hasHours) 1.sp else 1.5.sp,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -208,38 +242,26 @@ fun ConcentricRingsTimerTheme(
     }
 }
 
-@Preview(name = "Concentric Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Preview(name = "Concentric Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun ConcentricRingsTimerThemePortraitPreview() {
+private fun ConcentricStopwatchPortraitPreview() {
     ValueTimerTheme {
         ConcentricRingsTimerTheme(
-            remainingMillis = 5420000L,
-            totalMillis = 7200000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 145230L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }
 
-@Preview(name = "Concentric Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "Concentric Stopwatch Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
-private fun ConcentricRingsTimerThemeLandscapePreview() {
+private fun ConcentricStopwatchLandscapePreview() {
     ValueTimerTheme {
         ConcentricRingsTimerTheme(
-            remainingMillis = 5420000L,
-            totalMillis = 7200000L,
-            status = TimerStatus.Running
-        )
-    }
-}
-
-@Preview(name = "Concentric Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
-@Composable
-private fun ConcentricRingsTimerThemeTabletPreview() {
-    ValueTimerTheme {
-        ConcentricRingsTimerTheme(
-            remainingMillis = 5420000L,
-            totalMillis = 7200000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 4125890L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }

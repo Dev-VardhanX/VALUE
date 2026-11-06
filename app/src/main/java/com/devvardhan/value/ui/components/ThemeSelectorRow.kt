@@ -48,6 +48,7 @@ import com.devvardhan.value.ui.theme.SubtleGray
 fun ThemeSelectorRow(
     selectedTheme: TimerTheme,
     onThemeSelected: (TimerTheme) -> Unit,
+    availableThemes: List<TimerTheme> = TimerTheme.entries,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -58,7 +59,7 @@ fun ThemeSelectorRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        items(TimerTheme.entries) { theme ->
+        items(availableThemes) { theme ->
             ThemeTile(
                 theme = theme,
                 isSelected = theme == selectedTheme,

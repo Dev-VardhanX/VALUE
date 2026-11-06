@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.TimeUtils
+import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.ui.theme.DarkGray
 import com.devvardhan.value.ui.theme.PureWhite
@@ -47,16 +49,24 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
  * Theme 5: Flip Clock.
  * Classic split-flap cards for Hours, Minutes, and Seconds with a center divider line
  * and smooth 3D rotation flip animations when digits change.
- * Expands across available width and height dynamically.
+ * For Stopwatch: shows flap animation counting up with centiseconds as a static line.
  */
 @Composable
 fun FlipClockTimerTheme(
-    remainingMillis: Long,
-    totalMillis: Long,
-    status: TimerStatus,
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier
 ) {
-    val totalSeconds = if (remainingMillis <= 0L) 0L else (remainingMillis + 999) / 1000
+    val totalSeconds = if (isStopwatch) {
+        maxOf(0L, stopwatchElapsedMillis) / 1000L
+    } else {
+        if (remainingMillis <= 0L) 0L else (remainingMillis + 999L) / 1000L
+    }
+
     val hours = (totalSeconds / 3600).toInt()
     val minutes = ((totalSeconds % 3600) / 60).toInt()
     val seconds = (totalSeconds % 60).toInt()
@@ -64,6 +74,10 @@ fun FlipClockTimerTheme(
     val hStr = TimeUtils.formatTwoDigits(hours)
     val mStr = TimeUtils.formatTwoDigits(minutes)
     val sStr = TimeUtils.formatTwoDigits(seconds)
+
+    val centisStr = if (isStopwatch) {
+        String.format(".%02d", (stopwatchElapsedMillis % 1000L) / 10L)
+    } else null
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -78,26 +92,45 @@ fun FlipClockTimerTheme(
         val fontSize = dims.fontSize.sp
         val spacing = (cardWidth.value * 0.08f).coerceIn(3f, 8f).dp
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            // Hours
-            FlipDigitCard(digit = hStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
-            FlipDigitCard(digit = hStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                // Hours
+                FlipDigitCard(digit = hStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
+                FlipDigitCard(digit = hStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
 
-            FlipColon(height = cardHeight)
+                FlipColon(height = cardHeight)
 
-            // Minutes
-            FlipDigitCard(digit = mStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
-            FlipDigitCard(digit = mStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+                // Minutes
+                FlipDigitCard(digit = mStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
+                FlipDigitCard(digit = mStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
 
-            FlipColon(height = cardHeight)
+                FlipColon(height = cardHeight)
 
-            // Seconds
-            FlipDigitCard(digit = sStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
-            FlipDigitCard(digit = sStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+                // Seconds
+                FlipDigitCard(digit = sStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
+                FlipDigitCard(digit = sStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+            }
+
+            if (centisStr != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = centisStr,
+                    fontSize = (fontSize.value * 0.45f).coerceIn(14f, 32f).sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = SubtleGray,
+                    letterSpacing = 2.sp,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
     }
 }
@@ -189,38 +222,26 @@ private fun FlipColon(height: Dp) {
     }
 }
 
-@Preview(name = "FlipClock Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Preview(name = "FlipClock Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun FlipClockTimerThemePortraitPreview() {
+private fun FlipClockStopwatchPortraitPreview() {
     ValueTimerTheme {
         FlipClockTimerTheme(
-            remainingMillis = 59000L,
-            totalMillis = 60000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 59820L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }
 
-@Preview(name = "FlipClock Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "FlipClock Stopwatch Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
-private fun FlipClockTimerThemeLandscapePreview() {
+private fun FlipClockStopwatchLandscapePreview() {
     ValueTimerTheme {
         FlipClockTimerTheme(
-            remainingMillis = 59000L,
-            totalMillis = 60000L,
-            status = TimerStatus.Running
-        )
-    }
-}
-
-@Preview(name = "FlipClock Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
-@Composable
-private fun FlipClockTimerThemeTabletPreview() {
-    ValueTimerTheme {
-        FlipClockTimerTheme(
-            remainingMillis = 59000L,
-            totalMillis = 60000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 3600000L + 125000L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }

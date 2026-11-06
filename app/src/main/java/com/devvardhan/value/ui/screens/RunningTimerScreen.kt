@@ -36,9 +36,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
+import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.AppIcons
+import com.devvardhan.value.ui.components.ModeSwitch
 import com.devvardhan.value.ui.components.PrimaryPillButton
 import com.devvardhan.value.ui.components.SecondaryPillButton
 import com.devvardhan.value.ui.components.ThemeBottomSheet
@@ -68,6 +70,9 @@ fun RunningTimerScreen(
     onResumeClick: () -> Unit,
     onResetClick: () -> Unit,
     onFullscreenClick: () -> Unit,
+    currentMode: AppMode = AppMode.TIMER,
+    isStopwatchRunning: Boolean = false,
+    onModeSelected: (AppMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isPaused = status == TimerStatus.Paused
@@ -115,24 +120,24 @@ fun RunningTimerScreen(
                     modifier = Modifier
                         .width(200.dp)
                         .fillMaxHeight()
-                        .padding(horizontal = 16.dp, vertical = 20.dp),
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Header with title and icons
+                    // Header with mode switch and icons
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SubtleGray,
-                            letterSpacing = 4.sp
+                        ModeSwitch(
+                            currentMode = currentMode,
+                            isTimerRunning = status == TimerStatus.Running,
+                            isStopwatchRunning = isStopwatchRunning,
+                            onModeSelected = onModeSelected,
+                            modifier = Modifier.width(180.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -141,7 +146,7 @@ fun RunningTimerScreen(
                             IconButton(
                                 onClick = { showThemeSheet = true },
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(44.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Choose theme" }
                             ) {
@@ -149,14 +154,14 @@ fun RunningTimerScreen(
                                     imageVector = AppIcons.Palette,
                                     contentDescription = stringResource(R.string.action_change_theme),
                                     tint = PureWhite,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
 
                             IconButton(
                                 onClick = onFullscreenClick,
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(44.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Enter fullscreen mode" }
                             ) {
@@ -164,7 +169,7 @@ fun RunningTimerScreen(
                                     imageVector = AppIcons.Fullscreen,
                                     contentDescription = stringResource(R.string.action_fullscreen),
                                     tint = PureWhite,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
@@ -198,7 +203,7 @@ fun RunningTimerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 20.dp),
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -210,14 +215,22 @@ fun RunningTimerScreen(
                         letterSpacing = 4.sp
                     )
 
+                    ModeSwitch(
+                        currentMode = currentMode,
+                        isTimerRunning = status == TimerStatus.Running,
+                        isStopwatchRunning = isStopwatchRunning,
+                        onModeSelected = onModeSelected,
+                        modifier = Modifier.width(180.dp)
+                    )
+
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
                             onClick = { showThemeSheet = true },
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Choose theme" }
                         ) {
@@ -225,14 +238,14 @@ fun RunningTimerScreen(
                                 imageVector = AppIcons.Palette,
                                 contentDescription = stringResource(R.string.action_change_theme),
                                 tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onFullscreenClick,
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Enter fullscreen mode" }
                         ) {
@@ -240,7 +253,7 @@ fun RunningTimerScreen(
                                 imageVector = AppIcons.Fullscreen,
                                 contentDescription = stringResource(R.string.action_fullscreen),
                                 tint = PureWhite,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -309,26 +322,9 @@ private fun RunningTimerScreenPortraitPreview() {
             onPauseClick = {},
             onResumeClick = {},
             onResetClick = {},
-            onFullscreenClick = {}
-        )
-    }
-}
-
-@Preview(name = "Running Timer Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
-@Composable
-private fun RunningTimerScreenLandscapePreview() {
-    ValueTimerTheme {
-        RunningTimerScreen(
-            status = TimerStatus.Running,
-            targetEndTime = System.currentTimeMillis() + 120000L,
-            pausedRemainingMillis = 120000L,
-            totalMillis = 300000L,
-            theme = TimerTheme.CIRCLE,
-            onThemeChange = {},
-            onPauseClick = {},
-            onResumeClick = {},
-            onResetClick = {},
-            onFullscreenClick = {}
+            onFullscreenClick = {},
+            currentMode = AppMode.TIMER,
+            isStopwatchRunning = true
         )
     }
 }

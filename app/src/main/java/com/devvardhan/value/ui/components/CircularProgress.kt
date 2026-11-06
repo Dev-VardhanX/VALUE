@@ -28,6 +28,7 @@ fun MinimalCircularProgress(
     modifier: Modifier = Modifier,
     size: Dp = 280.dp,
     strokeWidth: Dp = 3.dp,
+    showLeadingDot: Boolean = false,
     content: @Composable () -> Unit = {}
 ) {
     Box(
@@ -56,6 +57,18 @@ fun MinimalCircularProgress(
                         cap = StrokeCap.Round
                     )
                 )
+
+                if (showLeadingDot) {
+                    val angleRad = Math.toRadians((-90.0 + sweep)).toFloat()
+                    val radius = (this.size.width - strokePx) / 2f
+                    val dotX = (this.size.width / 2f) + radius * kotlin.math.cos(angleRad)
+                    val dotY = (this.size.height / 2f) + radius * kotlin.math.sin(angleRad)
+                    drawCircle(
+                        color = PureWhite,
+                        radius = strokePx * 1.6f,
+                        center = androidx.compose.ui.geometry.Offset(dotX, dotY)
+                    )
+                }
             }
         }
 

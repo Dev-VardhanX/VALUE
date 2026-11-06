@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.ScoreboardDigitsHelper
+import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureWhite
@@ -47,17 +49,28 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 3: Three Box (Scoreboard).
- * Three scoreboard panels labelled HRS, MIN, SEC side-by-side.
- * In landscape, panels expand across full width and height with huge odometer rolling digits.
+ * Three scoreboard panels labelled HRS, MIN, SEC side-by-side with odometer rolling digit cells.
+ * For Stopwatch: rolls upward (counting up) with small centiseconds display.
  */
 @Composable
 fun ThreeBoxTimerTheme(
-    remainingMillis: Long,
-    totalMillis: Long,
-    status: TimerStatus,
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier
 ) {
-    val digits = ScoreboardDigitsHelper.extract(remainingMillis)
+    val digits = if (isStopwatch) {
+        ScoreboardDigitsHelper.extractElapsed(stopwatchElapsedMillis)
+    } else {
+        ScoreboardDigitsHelper.extract(remainingMillis)
+    }
+
+    val centis = if (isStopwatch) {
+        String.format("%02d", (stopwatchElapsedMillis % 1000L) / 10L)
+    } else null
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -86,7 +99,8 @@ fun ThreeBoxTimerTheme(
                 panelHeight = panelHeight,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
-                fontSize = fontSize
+                fontSize = fontSize,
+                countUp = isStopwatch
             )
 
             ScoreboardPanel(
@@ -97,7 +111,8 @@ fun ThreeBoxTimerTheme(
                 panelHeight = panelHeight,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
-                fontSize = fontSize
+                fontSize = fontSize,
+                countUp = isStopwatch
             )
 
             ScoreboardPanel(
@@ -108,7 +123,9 @@ fun ThreeBoxTimerTheme(
                 panelHeight = panelHeight,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
-                fontSize = fontSize
+                fontSize = fontSize,
+                countUp = isStopwatch,
+                centisecondsText = centis
             )
         }
     }
@@ -124,6 +141,8 @@ private fun ScoreboardPanel(
     cellWidth: Dp,
     cellHeight: Dp,
     fontSize: TextUnit,
+    countUp: Boolean,
+    centisecondsText: String? = null,
     modifier: Modifier = Modifier
 ) {
     val panelShape = RoundedCornerShape((panelWidth.value * 0.12f).coerceIn(10f, 22f).dp)
@@ -138,15 +157,33 @@ private fun ScoreboardPanel(
             .border(1.dp, BorderSubtle, panelShape)
             .padding(horizontal = 6.dp, vertical = 8.dp)
     ) {
-        Text(
-            text = label,
-            fontSize = (panelWidth.value * 0.12f).coerceIn(10f, 15f).sp,
-            fontWeight = FontWeight.SemiBold,
-            color = SubtleGray,
-            letterSpacing = 2.sp,
-            maxLines = 1,
-            softWrap = false
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = (panelWidth.value * 0.12f).coerceIn(10f, 15f).sp,
+                fontWeight = FontWeight.SemiBold,
+                color = SubtleGray,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false
+            )
+
+            if (centisecondsText != null) {
+                Text(
+                    text = ".$centisecondsText",
+                    fontSize = (panelWidth.value * 0.12f).coerceIn(10f, 15f).sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Light,
+                    color = SubtleGray,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        }
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
@@ -156,13 +193,15 @@ private fun ScoreboardPanel(
                 digit = tensDigit,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
-                fontSize = fontSize
+                fontSize = fontSize,
+                countUp = countUp
             )
             ScoreboardDigitCell(
                 digit = onesDigit,
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
-                fontSize = fontSize
+                fontSize = fontSize,
+                countUp = countUp
             )
         }
     }
@@ -174,6 +213,7 @@ private fun ScoreboardDigitCell(
     cellWidth: Dp,
     cellHeight: Dp,
     fontSize: TextUnit,
+    countUp: Boolean,
     modifier: Modifier = Modifier
 ) {
     val cellShape = RoundedCornerShape((cellWidth.value * 0.16f).coerceIn(6f, 14f).dp)
@@ -189,13 +229,16 @@ private fun ScoreboardDigitCell(
         AnimatedContent(
             targetState = digit,
             transitionSpec = {
+                val initialOffset = if (countUp) { height: Int -> height } else { height: Int -> -height }
+                val targetOffset = if (countUp) { height: Int -> -height } else { height: Int -> height }
+
                 (slideInVertically(
                     animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-                    initialOffsetY = { -it }
+                    initialOffsetY = initialOffset
                 ) + fadeIn(animationSpec = tween(280))).togetherWith(
                     slideOutVertically(
                         animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-                        targetOffsetY = { it }
+                        targetOffsetY = targetOffset
                     ) + fadeOut(animationSpec = tween(280))
                 )
             },
@@ -222,38 +265,26 @@ private fun ScoreboardDigitCell(
     }
 }
 
-@Preview(name = "ThreeBox Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Preview(name = "ThreeBox Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun ThreeBoxTimerThemePortraitPreview() {
+private fun ThreeBoxStopwatchPortraitPreview() {
     ValueTimerTheme {
         ThreeBoxTimerTheme(
-            remainingMillis = 3725000L,
-            totalMillis = 7200000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 62450L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }
 
-@Preview(name = "ThreeBox Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "ThreeBox Stopwatch Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
-private fun ThreeBoxTimerThemeLandscapePreview() {
+private fun ThreeBoxStopwatchLandscapePreview() {
     ValueTimerTheme {
         ThreeBoxTimerTheme(
-            remainingMillis = 3725000L,
-            totalMillis = 7200000L,
-            status = TimerStatus.Running
-        )
-    }
-}
-
-@Preview(name = "ThreeBox Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
-@Composable
-private fun ThreeBoxTimerThemeTabletPreview() {
-    ValueTimerTheme {
-        ThreeBoxTimerTheme(
-            remainingMillis = 3725000L,
-            totalMillis = 7200000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 3682950L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }

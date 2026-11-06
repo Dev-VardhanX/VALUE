@@ -21,4 +21,14 @@
     <string name="label_minutes">MINUTES</string>
     <string name="label_seconds">SECONDS</string>
     <string name="choose_theme">CHOOSE THEME</string>
+    <string name="mode_timer">Timer</string>
+    <string name="mode_stopwatch">Stopwatch</string>
+    <string name="action_lap">Lap</string>
+    <string name="lap_col_lap">LAP</string>
+    <string name="lap_col_split">SPLIT</string>
+    <string name="lap_col_total">TOTAL</string>
+    <string name="stopwatch_title">Stopwatch</string>
+    <string name="notification_channel_stopwatch_name">Stopwatch</string>
+    <string name="notification_channel_stopwatch_desc">Shows active stopwatch chronometer</string>
+    <string name="notification_stopwatch_title">VALUE Stopwatch</string>
 </resources>

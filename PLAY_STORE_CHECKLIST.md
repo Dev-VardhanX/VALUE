@@ -7,18 +7,18 @@ This guide provides everything needed to submit and release **VALUE** to the Goo
 ## 1. Store Listing Copy
 
 ### App Title
-`VALUE`
+`VALUE - Timer & Stopwatch` (or `VALUE`)
 
-### Short Description (77 characters, max 80)
-`A minimal, pure monochrome countdown timer built with premium craftsmanship.`
+### Short Description (79 characters, max 80)
+`A minimal, pure monochrome countdown timer and precision centisecond stopwatch.`
 
 ### Full Description
 ```
-VALUE is a minimal, pure black-and-white countdown timer crafted with uncompromising attention to detail, typography, and fluid motion.
+VALUE is a minimal, pure black-and-white countdown timer and precision stopwatch crafted with uncompromising attention to detail, typography, and fluid motion.
 
 No advertisements. No accounts. No tracking. No clutter.
 
-FEATURES:
+TIMER FEATURES:
 • Strictly Monochrome: Built on a deep pure black canvas (#000000) with crisp white numerals and subtle gray accents.
 • 7 Architectural Themes:
   1. Circle: Minimalist high-precision progress ring.
@@ -28,10 +28,18 @@ FEATURES:
   5. Flip Clock: Tactile split-flap digit cards with smooth 3D rotation animations.
   6. Liquid Fill: Fluid vessel container with animated sinusoidal waves and automatic text color inversion.
   7. Dot Grid: 60-dot matrix that transitions dot-by-dot as time elapses.
-• Live Theme Switcher: Preview and switch themes on the fly during an active timer without interrupting your countdown.
+• Live Theme Switcher: Preview and switch themes on the fly during an active countdown without interrupting your timer.
 • Immersive Fullscreen Mode: Hides status and navigation bars completely for distraction-free focus, with auto-scaling typography for landscape and portrait.
-• True 60 FPS Engine: Decoupled logic clock powered by SystemClock.elapsedRealtime ensures zero drift and zero jitter.
-• Background & Lockscreen Reliability: Runs as a lightweight foreground service with ongoing status bar controls and exact alarm integration for deep sleep (Doze mode).
+
+STOPWATCH FEATURES:
+• Centisecond Accuracy: Counts up from 00:00.00 with hundredths-of-a-second resolution. Adaptive layout cleanly displays MM:SS.cc under 1 hour and H:MM:SS.cc at 1 hour and above without digit jitter.
+• Lap Split Management: Record up to 99 laps with split and total times, newest on top. Automatic highlights identify the fastest lap ("BEST") in pure white and the slowest ("WORST") in subtle gray.
+• Dual Mode Switch: Effortlessly toggle between Timer and Stopwatch via a tactile top pill switch. Switching modes never resets or stops the active session in either mode.
+• Background Chronometer: Ongoing lock screen and notification shade display powered by Android's native chronometer for zero battery waste.
+
+ENGINE & ARCHITECTURE:
+• True 60 FPS Decoupled Clock: Logic clock powered directly by SystemClock.elapsedRealtime guarantees zero drift and zero jitter.
+• Background & Lockscreen Reliability: Lightweight foreground services with ongoing notification controls ensure uninterrupted execution even during Doze mode and across process death.
 • Pure Privacy: Zero data collected. Zero network permissions requested. Everything stays on your device.
 ```
 
@@ -42,8 +50,8 @@ FEATURES:
 | Asset | Dimensions | Format | Notes |
 | :--- | :--- | :--- | :--- |
 | **App Icon** | 512 x 512 px | 32-bit PNG | Pure black background with white ring (already generated in project) |
-| **Feature Graphic** | 1024 x 500 px | PNG or JPEG | Pure black banner with clean white "VALUE" typography and countdown digits |
-| **Phone Screenshots** | 1080 x 2400 px (or 1080 x 1920 px) | PNG or JPEG | Minimum 2 screenshots (recommended: Set Screen, Scoreboard theme, Hourglass theme, Fullscreen landscape) |
+| **Feature Graphic** | 1024 x 500 px | PNG or JPEG | Pure black banner with clean white "VALUE" typography and countdown/stopwatch digits |
+| **Phone Screenshots** | 1080 x 2400 px (or 1080 x 1920 px) | PNG or JPEG | Minimum 2 screenshots (recommended: 1. Timer Set Screen, 2. Timer Scoreboard theme, 3. Stopwatch running with Lap list, 4. Fullscreen Landscape Stopwatch) |
 | **7-inch Tablet** | 1200 x 1920 px | PNG or JPEG | Minimum 1 screenshot |
 | **10-inch Tablet** | 1600 x 2560 px | PNG or JPEG | Minimum 1 screenshot |
 
@@ -84,7 +92,7 @@ To compile and package the release Android App Bundle (AAB):
 
 * **Output Artifact Path:**
   `app\build\outputs\bundle\release\app-release.aab`
-* **Artifact Size:** ~3.7 MB (optimized with R8 minification and resource shrinking).
+* **Artifact Size:** ~3.78 MB (optimized with R8 minification and resource shrinking).
 
 ---
 
@@ -95,38 +103,17 @@ When prompted by Google Play Console regarding `FOREGROUND_SERVICE_SPECIAL_USE`:
 
 * **Foreground Service Type:** `Special Use` (`specialUse`)
 * **Subtype Specified in Manifest:**
-  `User-initiated countdown timer with ongoing progress notification and completion alarm`
+  `User-initiated countdown timer and precision stopwatch with ongoing progress notification and lock screen controls`
 * **User-Facing Feature Explanation (copy and paste):**
-  > "VALUE is a dedicated user-initiated countdown timer application. When a user configures a timer and taps Start, the application starts a foreground service with an ongoing notification to maintain accurate timekeeping, display remaining time, and allow pause/resume/reset actions from the lock screen. The foreground service is critical to ensure the timer alarm sounds accurately on schedule even if the user turns off the screen or switches to other applications."
-* **Video Demonstration:** Record a brief 15–30 second screen recording showing:
-  1. Starting a 10-second timer.
-  2. Pressing the Home button (showing ongoing notification).
-  3. Timer hitting zero with vibration, alarm sound, and notification.
+  > "VALUE is a dedicated user-initiated productivity utility providing both a countdown timer and a precision stopwatch. When a user starts either the timer or the stopwatch, the application launches a lightweight foreground service with an ongoing notification to guarantee uninterrupted timekeeping, live chronometer/countdown display, and quick pause/lap/reset controls directly from the lock screen and notification shade even when the device enters deep sleep (Doze mode)."
 
-### B. Data Safety Form Answers
-* **Does your app collect or share any user data?** Select **No**.
-* **Is all user data collected encrypted in transit?** N/A (no data collected).
-* **Does the app request network access?** No network permission (`android.permission.INTERNET` is not in the manifest).
+### B. Permissions Declarations
+* `POST_NOTIFICATIONS`: Required for Android 13+ (API 33+) to show ongoing timer and stopwatch notifications.
+* `VIBRATE`: Required for haptic feedback and timer completion alerts.
+* `FOREGROUND_SERVICE`: Required for background timekeeping.
+* `FOREGROUND_SERVICE_SPECIAL_USE`: Required for dedicated timer and stopwatch services.
 
-### C. Content Rating
-* Category: **Utility / Productivity**
-* Does the app contain violence, adult content, or gambling? **No**
-* Does the app share user location or facilitate communication? **No**
-* Rating result: **PEGI 3 / ESRB Everyone / IARC 3+**
-
----
-
-## 6. Step-by-Step Upload to Internal Testing Track
-
-1. Log in to [Google Play Console](https://play.google.com/console).
-2. Select your app: **VALUE** (or click **Create app** if not yet created).
-3. On the left navigation drawer, go to **Testing > Internal testing**.
-4. Click **Create new release**.
-5. Upload `app\build\outputs\bundle\release\app-release.aab`.
-6. Enter release name (e.g., `1.0.0 (1)`).
-7. Enter release notes:
-   `Initial production release of VALUE Timer: minimalist design, 7 architectural themes, 60fps animations, and zero tracking.`
-8. Click **Save** and then **Review release**.
-9. Add your email address under the **Testers** tab and send the invite link to your physical device.
-10. Install from Google Play Internal Testing to verify download, notifications, and alarm performance on a physical device.
-
+### C. Data Safety Form
+* **Does your app collect or share any user data?** No.
+* **Are all user data encrypted in transit?** N/A (no network requests).
+* **Do you provide a way for users to request data deletion?** N/A (no user data stored on servers).

@@ -31,7 +31,8 @@ fun ThemeBottomSheet(
     selectedTheme: TimerTheme,
     onThemeSelected: (TimerTheme) -> Unit,
     onDismissRequest: () -> Unit,
-    sheetState: SheetState = rememberModalBottomSheetState()
+    sheetState: SheetState = rememberModalBottomSheetState(),
+    availableThemes: List<TimerTheme> = TimerTheme.entries
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -65,7 +66,8 @@ fun ThemeBottomSheet(
 
             ThemeSelectorRow(
                 selectedTheme = selectedTheme,
-                onThemeSelected = onThemeSelected
+                onThemeSelected = onThemeSelected,
+                availableThemes = availableThemes
             )
         }
     }

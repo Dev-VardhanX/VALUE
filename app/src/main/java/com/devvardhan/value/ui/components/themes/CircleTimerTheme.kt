@@ -18,8 +18,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.core.StopwatchFractionCalculator
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
+import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.ui.components.MinimalCircularProgress
 import com.devvardhan.value.ui.theme.PureWhite
@@ -28,20 +30,43 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 1: Circle.
- * Clean, minimal circular progress ring with centered monospaced countdown digits.
- * Scales dynamically to min(width, height) - padding in portrait, landscape, and tablet.
+ * Clean, minimal circular progress ring with centered monospaced countdown or stopwatch digits.
+ * For Stopwatch: sweeps once per minute (60s cycle) with a leading edge dot.
  */
 @Composable
 fun CircleTimerTheme(
-    remainingMillis: Long,
-    totalMillis: Long,
-    status: TimerStatus,
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier
 ) {
-    val progress = ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
-    val isPaused = status == TimerStatus.Paused
-    val formattedTime = TimeUtils.formatHms(remainingMillis)
-    val totalTimeFormatted = TimeUtils.formatHms(totalMillis)
+    val progress = if (isStopwatch) {
+        StopwatchFractionCalculator.calculateCircleProgress(stopwatchElapsedMillis)
+    } else {
+        ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
+    }
+
+    val isPaused = if (isStopwatch) {
+        stopwatchStatus == StopwatchStatus.Paused
+    } else {
+        status == TimerStatus.Paused
+    }
+
+    val formattedTime = if (isStopwatch) {
+        TimeUtils.formatStopwatchAdaptive(stopwatchElapsedMillis)
+    } else {
+        TimeUtils.formatHms(remainingMillis)
+    }
+
+    val subText = if (isStopwatch) {
+        if (isPaused) "PAUSED" else "STOPWATCH"
+    } else {
+        val totalTimeFormatted = TimeUtils.formatHms(totalMillis)
+        if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted"
+    }
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -49,12 +74,16 @@ fun CircleTimerTheme(
     ) {
         val diameter = (minOf(maxWidth, maxHeight) - 32.dp).coerceAtLeast(120.dp)
         val strokeWidth = (diameter.value * 0.014f).coerceIn(2.5f, 6.5f).dp
-        val fontSize = (diameter.value * 0.16f).coerceIn(24f, 84f).sp
+        // If elapsed time passes 1 hour, font size slightly adjusts to fit H:MM:SS.cc without jumping
+        val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
+        val fontFactor = if (hasHours) 0.14f else 0.16f
+        val fontSize = (diameter.value * fontFactor).coerceIn(22f, 80f).sp
 
         MinimalCircularProgress(
             progress = progress,
             size = diameter,
-            strokeWidth = strokeWidth
+            strokeWidth = strokeWidth,
+            showLeadingDot = isStopwatch
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -66,7 +95,7 @@ fun CircleTimerTheme(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Light,
                     color = PureWhite,
-                    letterSpacing = 2.sp,
+                    letterSpacing = if (hasHours) 1.sp else 2.sp,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -74,7 +103,7 @@ fun CircleTimerTheme(
                 Spacer(modifier = Modifier.height((diameter.value * 0.025f).coerceIn(4f, 16f).dp))
 
                 Text(
-                    text = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted",
+                    text = subText,
                     fontSize = (diameter.value * 0.04f).coerceIn(10f, 16f).sp,
                     fontWeight = FontWeight.Medium,
                     color = SubtleGray,
@@ -88,38 +117,38 @@ fun CircleTimerTheme(
     }
 }
 
-@Preview(name = "Circle Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Preview(name = "Circle Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun CircleTimerThemePortraitPreview() {
+private fun CircleStopwatchPortraitPreview() {
     ValueTimerTheme {
         CircleTimerTheme(
-            remainingMillis = 125000L,
-            totalMillis = 300000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 74520L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }
 
-@Preview(name = "Circle Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "Circle Stopwatch Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
-private fun CircleTimerThemeLandscapePreview() {
+private fun CircleStopwatchLandscapePreview() {
     ValueTimerTheme {
         CircleTimerTheme(
-            remainingMillis = 125000L,
-            totalMillis = 300000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 3674520L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }
 
-@Preview(name = "Circle Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Preview(name = "Circle Stopwatch Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
 @Composable
-private fun CircleTimerThemeTabletPreview() {
+private fun CircleStopwatchTabletPreview() {
     ValueTimerTheme {
         CircleTimerTheme(
-            remainingMillis = 125000L,
-            totalMillis = 300000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 123450L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }

@@ -17,5 +17,15 @@ enum class TimerTheme(val displayName: String) {
         val nextIndex = (ordinal + 1) % entries.size
         return entries[nextIndex]
     }
+
+    companion object {
+        val stopwatchThemes: List<TimerTheme> = listOf(
+            CIRCLE,
+            CONCENTRIC_RINGS,
+            THREE_BOX,
+            FLIP_CLOCK,
+            DOT_GRID
+        )
+    }
 }
 

@@ -24,8 +24,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.StopwatchFractionCalculator
 import com.devvardhan.value.core.ThemeFractionCalculator
 import com.devvardhan.value.core.TimeUtils
+import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
@@ -33,21 +35,44 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Theme 7: Dot Grid.
- * A matrix of 60 dots representing the countdown duration.
- * Dynamically adjusts matrix aspect ratio (12x5 in landscape with digits beside, 10x6 in portrait with digits below).
+ * A matrix of 60 dots.
+ * For Stopwatch: one more dot lights up each second, resets every minute, with minutes in digits.
  */
 @Composable
 fun DotGridTimerTheme(
-    remainingMillis: Long,
-    totalMillis: Long,
-    status: TimerStatus,
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier
 ) {
     val totalDots = 60
-    val activeDots = ThemeFractionCalculator.calculateDotGridActiveCount(remainingMillis, totalMillis, totalDots)
-    val formattedTime = TimeUtils.formatHms(remainingMillis)
-    val isPaused = status == TimerStatus.Paused
-    val totalTimeFormatted = remember(totalMillis) { TimeUtils.formatHms(totalMillis) }
+    val activeDots = if (isStopwatch) {
+        StopwatchFractionCalculator.calculateActiveDots(stopwatchElapsedMillis)
+    } else {
+        ThemeFractionCalculator.calculateDotGridActiveCount(remainingMillis, totalMillis, totalDots)
+    }
+
+    val formattedTime = if (isStopwatch) {
+        TimeUtils.formatStopwatchAdaptive(stopwatchElapsedMillis)
+    } else {
+        TimeUtils.formatHms(remainingMillis)
+    }
+
+    val isPaused = if (isStopwatch) {
+        stopwatchStatus == StopwatchStatus.Paused
+    } else {
+        status == TimerStatus.Paused
+    }
+
+    val subText = if (isStopwatch) {
+        if (isPaused) "PAUSED" else "STOPWATCH"
+    } else {
+        val totalTimeFormatted = TimeUtils.formatHms(totalMillis)
+        if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted"
+    }
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -103,7 +128,7 @@ fun DotGridTimerTheme(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted",
+                    text = subText,
                     fontSize = (matrix.fontSize * 0.26f).coerceIn(10f, 16f).sp,
                     fontWeight = FontWeight.Medium,
                     color = SubtleGray,
@@ -141,38 +166,26 @@ fun DotGridTimerTheme(
     }
 }
 
-@Preview(name = "DotGrid Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Preview(name = "DotGrid Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun DotGridTimerThemePortraitPreview() {
+private fun DotGridStopwatchPortraitPreview() {
     ValueTimerTheme {
         DotGridTimerTheme(
-            remainingMillis = 150000L,
-            totalMillis = 300000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 35000L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }
 
-@Preview(name = "DotGrid Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "DotGrid Stopwatch Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
-private fun DotGridTimerThemeLandscapePreview() {
+private fun DotGridStopwatchLandscapePreview() {
     ValueTimerTheme {
         DotGridTimerTheme(
-            remainingMillis = 150000L,
-            totalMillis = 300000L,
-            status = TimerStatus.Running
-        )
-    }
-}
-
-@Preview(name = "DotGrid Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
-@Composable
-private fun DotGridTimerThemeTabletPreview() {
-    ValueTimerTheme {
-        DotGridTimerTheme(
-            remainingMillis = 150000L,
-            totalMillis = 300000L,
-            status = TimerStatus.Running
+            isStopwatch = true,
+            stopwatchElapsedMillis = 95200L,
+            stopwatchStatus = StopwatchStatus.Running
         )
     }
 }

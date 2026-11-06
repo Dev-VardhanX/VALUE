@@ -43,6 +43,16 @@
                 android:value="User-initiated countdown timer with ongoing progress notification and completion alarm" />
         </service>
 
+        <service
+            android:name=".service.StopwatchService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-initiated stopwatch with ongoing chronometer notification and lap tracking" />
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
