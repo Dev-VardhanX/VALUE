@@ -288,5 +288,56 @@ object AppIcons {
             }
         }.build()
     }
+
+    val Flag: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Flag",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(14.4f, 6f)
+                lineTo(14f, 4f)
+                horizontalLineTo(5f)
+                verticalLineTo(21f)
+                horizontalLineTo(7f)
+                verticalLineTo(14f)
+                horizontalLineTo(12.6f)
+                lineTo(13f, 16f)
+                horizontalLineTo(20f)
+                verticalLineTo(6f)
+                horizontalLineTo(14.4f)
+                close()
+            }
+        }.build()
+    }
+
+    val Reset: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Reset",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(12f, 5f)
+                verticalLineTo(1f)
+                lineTo(7f, 6f)
+                lineTo(12f, 11f)
+                verticalLineTo(7f)
+                curveTo(15.31f, 7f, 18f, 9.69f, 18f, 13f)
+                curveTo(18f, 16.31f, 15.31f, 19f, 12f, 19f)
+                curveTo(8.69f, 19f, 6f, 16.31f, 6f, 13f)
+                horizontalLineTo(4f)
+                curveTo(4f, 17.42f, 7.58f, 21f, 12f, 21f)
+                curveTo(16.42f, 21f, 20f, 17.42f, 20f, 13f)
+                curveTo(20f, 8.58f, 16.42f, 5f, 12f, 5f)
+                close()
+            }
+        }.build()
+    }
 }
 

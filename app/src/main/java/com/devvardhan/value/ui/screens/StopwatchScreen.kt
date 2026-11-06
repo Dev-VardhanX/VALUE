@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.LapItem
 import com.devvardhan.value.model.StopwatchStatus
@@ -41,8 +42,7 @@ import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.AppIcons
 import com.devvardhan.value.ui.components.LapList
 import com.devvardhan.value.ui.components.ModeSwitch
-import com.devvardhan.value.ui.components.PrimaryPillButton
-import com.devvardhan.value.ui.components.SecondaryPillButton
+import com.devvardhan.value.ui.components.StopwatchControlRow
 import com.devvardhan.value.ui.components.StopwatchVisual
 import com.devvardhan.value.ui.components.rememberStopwatchElapsedMillis
 import com.devvardhan.value.ui.theme.BorderSubtle
@@ -83,7 +83,6 @@ fun StopwatchScreen(
     )
 
     val isRunning = status == StopwatchStatus.Running
-    val isLapEnabled = isRunning && laps.size < 99
 
     BoxWithConstraints(
         modifier = modifier
@@ -187,58 +186,24 @@ fun StopwatchScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // Action buttons (1 or 2 button states)
-                    when (status) {
-                        StopwatchStatus.Idle -> {
-                            PrimaryPillButton(
-                                text = stringResource(R.string.action_start),
-                                onClick = onStartClick,
-                                modifier = Modifier.fillMaxWidth(),
-                                height = 50.dp
-                            )
-                        }
-                        StopwatchStatus.Running -> {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SecondaryPillButton(
-                                    text = stringResource(R.string.action_lap),
-                                    onClick = onLapClick,
-                                    enabled = isLapEnabled,
-                                    modifier = Modifier.weight(1f),
-                                    height = 50.dp
-                                )
-                                PrimaryPillButton(
-                                    text = stringResource(R.string.action_pause),
-                                    onClick = onPauseClick,
-                                    modifier = Modifier.weight(1f),
-                                    height = 50.dp
-                                )
-                            }
-                        }
-                        StopwatchStatus.Paused -> {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SecondaryPillButton(
-                                    text = stringResource(R.string.action_reset),
-                                    onClick = onResetClick,
-                                    modifier = Modifier.weight(1f),
-                                    height = 50.dp
-                                )
-                                PrimaryPillButton(
-                                    text = stringResource(R.string.action_resume),
-                                    onClick = onResumeClick,
-                                    modifier = Modifier.weight(1f),
-                                    height = 50.dp
-                                )
-                            }
-                        }
+                    // Action controls row (Flag | Start/Pause/Resume | Reset)
+                    val landscapeSplitFormatted = if (laps.isEmpty()) {
+                        TimeUtils.formatLapTime(liveElapsedMillis)
+                    } else {
+                        TimeUtils.formatLapTime((liveElapsedMillis - laps.first().totalTimeMillis).coerceAtLeast(0L))
                     }
+                    StopwatchControlRow(
+                        status = status,
+                        lapsCount = laps.size,
+                        onStartClick = onStartClick,
+                        onPauseClick = onPauseClick,
+                        onResumeClick = onResumeClick,
+                        onLapClick = onLapClick,
+                        onResetClick = onResetClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 52.dp,
+                        latestSplitFormatted = landscapeSplitFormatted
+                    )
 
                     Spacer(modifier = Modifier.height(6.dp))
 
@@ -353,64 +318,30 @@ fun StopwatchScreen(
                     )
                 }
 
-                // Action controls: Clean states (1 big start button in Idle, 2 equal buttons in Running/Paused)
+                // Action controls: Clean 3-button row (Flag | Start/Pause/Resume | Reset)
+                val portraitSplitFormatted = if (laps.isEmpty()) {
+                    TimeUtils.formatLapTime(liveElapsedMillis)
+                } else {
+                    TimeUtils.formatLapTime((liveElapsedMillis - laps.first().totalTimeMillis).coerceAtLeast(0L))
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    when (status) {
-                        StopwatchStatus.Idle -> {
-                            PrimaryPillButton(
-                                text = stringResource(R.string.action_start),
-                                onClick = onStartClick,
-                                modifier = Modifier.fillMaxWidth(),
-                                height = 56.dp
-                            )
-                        }
-                        StopwatchStatus.Running -> {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SecondaryPillButton(
-                                    text = stringResource(R.string.action_lap),
-                                    onClick = onLapClick,
-                                    enabled = isLapEnabled,
-                                    modifier = Modifier.weight(1f),
-                                    height = 56.dp
-                                )
-                                PrimaryPillButton(
-                                    text = stringResource(R.string.action_pause),
-                                    onClick = onPauseClick,
-                                    modifier = Modifier.weight(1f),
-                                    height = 56.dp
-                                )
-                            }
-                        }
-                        StopwatchStatus.Paused -> {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SecondaryPillButton(
-                                    text = stringResource(R.string.action_reset),
-                                    onClick = onResetClick,
-                                    modifier = Modifier.weight(1f),
-                                    height = 56.dp
-                                )
-                                PrimaryPillButton(
-                                    text = stringResource(R.string.action_resume),
-                                    onClick = onResumeClick,
-                                    modifier = Modifier.weight(1f),
-                                    height = 56.dp
-                                )
-                            }
-                        }
-                    }
+                    StopwatchControlRow(
+                        status = status,
+                        lapsCount = laps.size,
+                        onStartClick = onStartClick,
+                        onPauseClick = onPauseClick,
+                        onResumeClick = onResumeClick,
+                        onLapClick = onLapClick,
+                        onResetClick = onResetClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 56.dp,
+                        latestSplitFormatted = portraitSplitFormatted
+                    )
                 }
 
                 // Lap List: Always visible with at least 2-3 rows, filling remaining height down to bottom

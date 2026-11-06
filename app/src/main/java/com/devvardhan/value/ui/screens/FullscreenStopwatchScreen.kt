@@ -3,17 +3,19 @@ package com.devvardhan.value.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,15 +23,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -40,7 +47,7 @@ import com.devvardhan.value.R
 import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.AppIcons
-import com.devvardhan.value.ui.components.SecondaryPillButton
+import com.devvardhan.value.ui.components.StopwatchControlRow
 import com.devvardhan.value.ui.components.StopwatchVisual
 import com.devvardhan.value.ui.components.rememberStopwatchElapsedMillis
 import com.devvardhan.value.ui.theme.PureBlack
@@ -50,8 +57,10 @@ import kotlinx.coroutines.delay
 
 /**
  * Fullscreen Stopwatch Screen:
- * Immersive sticky mode displaying the active stopwatch visual on pure black.
- * Single tap briefly reveals an exit button and a small Lap button that auto-hide after 2 seconds.
+ * Immersive sticky mode displaying the stopwatch visual on pure black.
+ * Controls (Exit button and Flag | Start/Pause/Resume | Reset row) auto-hide after 3 seconds of no touch.
+ * Any touch anywhere fades them back in and restarts the 3s timer.
+ * The touch that reveals hidden controls consumes the event, avoiding accidental button clicks underneath.
  */
 @Composable
 fun FullscreenStopwatchScreen(
@@ -59,12 +68,26 @@ fun FullscreenStopwatchScreen(
     status: StopwatchStatus,
     startTime: Long,
     accumulatedMillis: Long,
+    lapsCount: Int,
+    onStartClick: () -> Unit,
+    onPauseClick: () -> Unit,
+    onResumeClick: () -> Unit,
     onLapClick: () -> Unit,
+    onResetClick: () -> Unit,
     onExitFullscreen: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialControlsVisible: Boolean = true
 ) {
     val context = LocalContext.current
-    var showControls by remember { mutableStateOf(false) }
+    var areControlsVisible by remember { mutableStateOf(initialControlsVisible) }
+    var lastInteractionTime by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+
+    // Smooth 300ms alpha fade
+    val controlsAlpha by animateFloatAsState(
+        targetValue = if (areControlsVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "FullscreenStopwatchControlsAlpha"
+    )
 
     // Decoupled 60fps frame clock
     val liveElapsedMillis by rememberStopwatchElapsedMillis(
@@ -78,11 +101,11 @@ fun FullscreenStopwatchScreen(
         onExitFullscreen()
     }
 
-    // Auto-hide controls after 2 seconds
-    LaunchedEffect(showControls) {
-        if (showControls) {
-            delay(2000L)
-            showControls = false
+    // Auto-hide controls after 3 seconds with no touch
+    LaunchedEffect(lastInteractionTime, areControlsVisible) {
+        if (areControlsVisible) {
+            delay(3000L)
+            areControlsVisible = false
         }
     }
 
@@ -105,39 +128,72 @@ fun FullscreenStopwatchScreen(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(PureBlack)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                showControls = true
-            },
-        contentAlignment = Alignment.Center
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val hasDown = event.changes.any { it.pressed && !it.previousPressed }
+                        if (hasDown) {
+                            if (!areControlsVisible) {
+                                // First touch while hidden: CONSUME the event so children buttons
+                                // are NOT triggered, reveal controls, and reset timer
+                                event.changes.forEach { it.consume() }
+                                areControlsVisible = true
+                                lastInteractionTime = SystemClock.elapsedRealtime()
+                            } else {
+                                // Touch while already visible: do NOT consume so buttons still work,
+                                // but reset the 3s auto-hide timer
+                                lastInteractionTime = SystemClock.elapsedRealtime()
+                            }
+                        }
+                    }
+                }
+            }
     ) {
-        // Visual container scaled to viewport
-        StopwatchVisual(
-            theme = theme,
-            elapsedMillis = liveElapsedMillis,
-            status = status,
+        val isLandscape = maxWidth > maxHeight * 1.15f
+
+        // 1. Stopwatch visual: centered with reserved bottom clearance to prevent overlapping controls
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
-        )
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = if (isLandscape) 12.dp else 24.dp,
+                    bottom = if (isLandscape) 72.dp else 96.dp
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            StopwatchVisual(
+                theme = theme,
+                elapsedMillis = liveElapsedMillis,
+                status = status,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
-        // Exit fullscreen icon (auto-hiding)
-        AnimatedVisibility(
-            visible = showControls,
-            enter = fadeIn(),
-            exit = fadeOut(),
+        // 2. Exit fullscreen icon button (auto-hiding)
+        Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(24.dp)
+                .graphicsLayer { alpha = controlsAlpha }
+                .semantics {
+                    if (!areControlsVisible) {
+                        hideFromAccessibility()
+                    }
+                }
         ) {
             IconButton(
-                onClick = onExitFullscreen,
+                onClick = {
+                    lastInteractionTime = SystemClock.elapsedRealtime()
+                    onExitFullscreen()
+                },
+                enabled = areControlsVisible,
                 modifier = Modifier
                     .size(48.dp)
                     .background(Color(0x33FFFFFF), CircleShape)
@@ -152,19 +208,56 @@ fun FullscreenStopwatchScreen(
             }
         }
 
-        // Temporary Lap button (auto-hiding)
-        AnimatedVisibility(
-            visible = showControls && status == StopwatchStatus.Running,
-            enter = fadeIn(),
-            exit = fadeOut(),
+        // 3. Compact bottom controls overlay (Flag | Start/Pause/Resume | Reset)
+        val bottomControlsWidth = if (isLandscape) {
+            Modifier.width(360.dp)
+        } else {
+            Modifier
+                .fillMaxWidth()
+                .widthIn(max = 380.dp)
+        }
+
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 36.dp)
+                .padding(
+                    start = 24.dp,
+                    end = 24.dp,
+                    bottom = if (isLandscape) 16.dp else 32.dp
+                )
+                .then(bottomControlsWidth)
+                .graphicsLayer { alpha = controlsAlpha }
+                .semantics {
+                    if (!areControlsVisible) {
+                        hideFromAccessibility()
+                    }
+                },
+            contentAlignment = Alignment.Center
         ) {
-            SecondaryPillButton(
-                text = stringResource(R.string.action_lap),
-                onClick = onLapClick,
-                modifier = Modifier.size(width = 120.dp, height = 44.dp)
+            StopwatchControlRow(
+                status = status,
+                lapsCount = lapsCount,
+                onStartClick = {
+                    lastInteractionTime = SystemClock.elapsedRealtime()
+                    onStartClick()
+                },
+                onPauseClick = {
+                    lastInteractionTime = SystemClock.elapsedRealtime()
+                    onPauseClick()
+                },
+                onResumeClick = {
+                    lastInteractionTime = SystemClock.elapsedRealtime()
+                    onResumeClick()
+                },
+                onLapClick = {
+                    lastInteractionTime = SystemClock.elapsedRealtime()
+                    onLapClick()
+                },
+                onResetClick = {
+                    lastInteractionTime = SystemClock.elapsedRealtime()
+                    onResetClick()
+                },
+                height = if (isLandscape) 52.dp else 56.dp
             )
         }
     }
@@ -179,18 +272,69 @@ private fun Context.findActivity(): Activity? {
     return null
 }
 
-@Preview(name = "Fullscreen Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS
+// -------------------------------------------------------------------------------------------------
+
+@Preview(name = "Fullscreen Stopwatch - Visible", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun FullscreenStopwatchPortraitPreview() {
+private fun PreviewFullscreenStopwatchVisible() {
     ValueTimerTheme {
         FullscreenStopwatchScreen(
-            theme = TimerTheme.CIRCLE,
+            theme = TimerTheme.THREE_BOX,
             status = StopwatchStatus.Running,
-            startTime = System.currentTimeMillis() - 34000L,
-            accumulatedMillis = 34000L,
+            startTime = System.currentTimeMillis() - 25000L,
+            accumulatedMillis = 25000L,
+            lapsCount = 2,
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
             onLapClick = {},
-            onExitFullscreen = {}
+            onResetClick = {},
+            onExitFullscreen = {},
+            initialControlsVisible = true
         )
     }
 }
 
+@Preview(name = "Fullscreen Stopwatch - Hidden", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Composable
+private fun PreviewFullscreenStopwatchHidden() {
+    ValueTimerTheme {
+        FullscreenStopwatchScreen(
+            theme = TimerTheme.THREE_BOX,
+            status = StopwatchStatus.Running,
+            startTime = System.currentTimeMillis() - 25000L,
+            accumulatedMillis = 25000L,
+            lapsCount = 2,
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onExitFullscreen = {},
+            initialControlsVisible = false
+        )
+    }
+}
+
+@Preview(name = "Fullscreen Stopwatch - Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun PreviewFullscreenStopwatchLandscape() {
+    ValueTimerTheme {
+        FullscreenStopwatchScreen(
+            theme = TimerTheme.CONCENTRIC_RINGS,
+            status = StopwatchStatus.Paused,
+            startTime = 0L,
+            accumulatedMillis = 48000L,
+            lapsCount = 1,
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onExitFullscreen = {},
+            initialControlsVisible = true
+        )
+    }
+}

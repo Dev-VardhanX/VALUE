@@ -242,50 +242,40 @@ object AdaptiveLayoutHelper {
         )
     }
 
-    enum class StopwatchButtonAction { START, PAUSE, RESUME, LAP, RESET }
-
-    data class StopwatchButtonsState(
-        val primaryAction: StopwatchButtonAction,
-        val secondaryAction: StopwatchButtonAction?,
-        val isPrimaryEnabled: Boolean,
-        val isSecondaryEnabled: Boolean,
-        val isFullWidthSingleButton: Boolean
-    )
+    data class StopwatchControlRowState(
+        val mainAction: MainAction,
+        val isMainEnabled: Boolean,
+        val isLapEnabled: Boolean,
+        val isResetEnabled: Boolean
+    ) {
+        enum class MainAction { START, PAUSE, RESUME }
+    }
 
     /**
-     * Resolves the button layout per stopwatch state.
-     * Idle: 1 full-width START button.
-     * Running: LAP (secondary) + PAUSE (primary).
-     * Paused: RESET (secondary) + RESUME (primary).
+     * Resolves the stopwatch control row states:
+     * - LEFT: Flag/Lap button (enabled ONLY while running, capped at maxLaps)
+     * - CENTER: Main pill button (Start when Idle, Pause when Running, Resume when Paused; always enabled)
+     * - RIGHT: Reset button (enabled when Paused or when laps exist)
      */
-    fun getStopwatchButtonsState(
+    fun getStopwatchControlRowState(
         status: StopwatchStatus,
         lapsCount: Int = 0,
         maxLaps: Int = 99
-    ): StopwatchButtonsState {
-        return when (status) {
-            StopwatchStatus.Idle -> StopwatchButtonsState(
-                primaryAction = StopwatchButtonAction.START,
-                secondaryAction = null,
-                isPrimaryEnabled = true,
-                isSecondaryEnabled = false,
-                isFullWidthSingleButton = true
-            )
-            StopwatchStatus.Running -> StopwatchButtonsState(
-                primaryAction = StopwatchButtonAction.PAUSE,
-                secondaryAction = StopwatchButtonAction.LAP,
-                isPrimaryEnabled = true,
-                isSecondaryEnabled = lapsCount < maxLaps,
-                isFullWidthSingleButton = false
-            )
-            StopwatchStatus.Paused -> StopwatchButtonsState(
-                primaryAction = StopwatchButtonAction.RESUME,
-                secondaryAction = StopwatchButtonAction.RESET,
-                isPrimaryEnabled = true,
-                isSecondaryEnabled = true,
-                isFullWidthSingleButton = false
-            )
+    ): StopwatchControlRowState {
+        val mainAction = when (status) {
+            StopwatchStatus.Idle -> StopwatchControlRowState.MainAction.START
+            StopwatchStatus.Running -> StopwatchControlRowState.MainAction.PAUSE
+            StopwatchStatus.Paused -> StopwatchControlRowState.MainAction.RESUME
         }
+        val isLapEnabled = (status == StopwatchStatus.Running) && (lapsCount < maxLaps)
+        val isResetEnabled = (status == StopwatchStatus.Paused) || (status == StopwatchStatus.Idle && lapsCount > 0)
+
+        return StopwatchControlRowState(
+            mainAction = mainAction,
+            isMainEnabled = true,
+            isLapEnabled = isLapEnabled,
+            isResetEnabled = isResetEnabled
+        )
     }
 
     /**

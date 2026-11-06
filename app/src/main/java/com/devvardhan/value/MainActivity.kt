@@ -224,7 +224,12 @@ fun ValueApp(
                                 status = stopwatchState.status,
                                 startTime = stopwatchState.startTime,
                                 accumulatedMillis = stopwatchState.accumulatedMillis,
+                                lapsCount = stopwatchState.laps.size,
+                                onStartClick = { stopwatchViewModel.start() },
+                                onPauseClick = { stopwatchViewModel.pause() },
+                                onResumeClick = { stopwatchViewModel.resume() },
                                 onLapClick = { stopwatchViewModel.lap() },
+                                onResetClick = { stopwatchViewModel.reset() },
                                 onExitFullscreen = { stopwatchViewModel.setFullscreen(false) }
                             )
                         } else {

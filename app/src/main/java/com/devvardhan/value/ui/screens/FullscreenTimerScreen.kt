@@ -3,13 +3,11 @@ package com.devvardhan.value.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -21,15 +19,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,9 +51,11 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 import kotlinx.coroutines.delay
 
 /**
- * Screen 3: Fullscreen Mode.
+ * Screen 3: Fullscreen Timer Mode.
  * Immersive sticky mode displaying the selected theme visual scaled to the screen bounds on pure black.
- * Driven by the decoupled 60fps frame clock.
+ * The exit-fullscreen icon auto-hides after 3 seconds of no touch.
+ * Any touch anywhere fades it back in and restarts the 3s timer.
+ * The touch that reveals hidden controls consumes the event, avoiding accidental button clicks underneath.
  */
 @Composable
 fun FullscreenTimerScreen(
@@ -60,10 +65,19 @@ fun FullscreenTimerScreen(
     totalMillis: Long,
     status: TimerStatus,
     onExitFullscreen: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialControlsVisible: Boolean = true
 ) {
     val context = LocalContext.current
-    var showExitIcon by remember { mutableStateOf(false) }
+    var isExitIconVisible by remember { mutableStateOf(initialControlsVisible) }
+    var lastInteractionTime by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+
+    // Smooth 300ms alpha fade without recomposing the whole screen
+    val exitIconAlpha by animateFloatAsState(
+        targetValue = if (isExitIconVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "FullscreenTimerExitIconAlpha"
+    )
 
     // High performance frame clock for smooth 60fps visual updates
     val liveRemainingMillis by rememberCountdownRemainingMillis(
@@ -77,11 +91,11 @@ fun FullscreenTimerScreen(
         onExitFullscreen()
     }
 
-    // Auto-hide exit button after 2 seconds
-    LaunchedEffect(showExitIcon) {
-        if (showExitIcon) {
-            delay(2000L)
-            showExitIcon = false
+    // Auto-hide exit button after 3 seconds of inactivity
+    LaunchedEffect(lastInteractionTime, isExitIconVisible) {
+        if (isExitIconVisible) {
+            delay(3000L)
+            isExitIconVisible = false
         }
     }
 
@@ -108,11 +122,24 @@ fun FullscreenTimerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(PureBlack)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                showExitIcon = true
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val hasDown = event.changes.any { it.pressed && !it.previousPressed }
+                        if (hasDown) {
+                            if (!isExitIconVisible) {
+                                // First touch while hidden: CONSUME event so it only reveals controls
+                                event.changes.forEach { it.consume() }
+                                isExitIconVisible = true
+                                lastInteractionTime = SystemClock.elapsedRealtime()
+                            } else {
+                                // Touch while already visible: do NOT consume so exit button works
+                                lastInteractionTime = SystemClock.elapsedRealtime()
+                            }
+                        }
+                    }
+                }
             },
         contentAlignment = Alignment.Center
     ) {
@@ -127,17 +154,24 @@ fun FullscreenTimerScreen(
                 .padding(16.dp)
         )
 
-        // Exit fullscreen icon button (auto-hides after 2 seconds)
-        AnimatedVisibility(
-            visible = showExitIcon,
-            enter = fadeIn(),
-            exit = fadeOut(),
+        // Exit fullscreen icon button (auto-hides after 3 seconds, 300ms fade)
+        Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(24.dp)
+                .graphicsLayer { alpha = exitIconAlpha }
+                .semantics {
+                    if (!isExitIconVisible) {
+                        hideFromAccessibility()
+                    }
+                }
         ) {
             IconButton(
-                onClick = onExitFullscreen,
+                onClick = {
+                    lastInteractionTime = SystemClock.elapsedRealtime()
+                    onExitFullscreen()
+                },
+                enabled = isExitIconVisible,
                 modifier = Modifier
                     .size(48.dp)
                     .background(Color(0x33FFFFFF), CircleShape)
@@ -163,32 +197,38 @@ private fun Context.findActivity(): Activity? {
     return null
 }
 
-@Preview(name = "Fullscreen Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS
+// -------------------------------------------------------------------------------------------------
+
+@Preview(name = "Fullscreen Timer - Visible", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun FullscreenTimerScreenPortraitPreview() {
+private fun PreviewFullscreenTimerVisible() {
     ValueTimerTheme {
         FullscreenTimerScreen(
             theme = TimerTheme.CIRCLE,
-            targetEndTime = System.currentTimeMillis() + 120000L,
-            pausedRemainingMillis = 120000L,
-            totalMillis = 300000L,
+            targetEndTime = System.currentTimeMillis() + 45000L,
+            pausedRemainingMillis = 45000L,
+            totalMillis = 60000L,
             status = TimerStatus.Running,
-            onExitFullscreen = {}
+            onExitFullscreen = {},
+            initialControlsVisible = true
         )
     }
 }
 
-@Preview(name = "Fullscreen Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "Fullscreen Timer - Hidden", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun FullscreenTimerScreenLandscapePreview() {
+private fun PreviewFullscreenTimerHidden() {
     ValueTimerTheme {
         FullscreenTimerScreen(
             theme = TimerTheme.CIRCLE,
-            targetEndTime = System.currentTimeMillis() + 120000L,
-            pausedRemainingMillis = 120000L,
-            totalMillis = 300000L,
+            targetEndTime = System.currentTimeMillis() + 45000L,
+            pausedRemainingMillis = 45000L,
+            totalMillis = 60000L,
             status = TimerStatus.Running,
-            onExitFullscreen = {}
+            onExitFullscreen = {},
+            initialControlsVisible = false
         )
     }
 }

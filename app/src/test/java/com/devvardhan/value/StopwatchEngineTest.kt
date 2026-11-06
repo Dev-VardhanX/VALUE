@@ -10,6 +10,7 @@ import com.devvardhan.value.model.LapItem
 import com.devvardhan.value.model.StopwatchStatus
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -388,6 +389,91 @@ class StopwatchEngineTest {
         assertEquals(30, StopwatchFractionCalculator.calculateActiveDots(30_000L))
         assertEquals(59, StopwatchFractionCalculator.calculateActiveDots(59_000L))
         assertEquals(0, StopwatchFractionCalculator.calculateActiveDots(60_000L)) // 60s wraps to 0
+    }
+
+    @Test
+    fun testFiveConsecutiveCyclesWithFullscreenAutoHideSequence() {
+        val autoHide = com.devvardhan.value.core.AutoHideController(
+            timeoutMillis = 3000L,
+            clock = { fakeCurrentTime }
+        )
+
+        for (cycle in 1..5) {
+            // --- Normal Control Row Verification ---
+            // 1. Initial Idle
+            var controls = com.devvardhan.value.core.AdaptiveLayoutHelper.getStopwatchControlRowState(
+                StopwatchStatus.Idle,
+                lapsCount = 0
+            )
+            assertEquals("Cycle $cycle: Main should be START", com.devvardhan.value.core.AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.START, controls.mainAction)
+            assertTrue(controls.isMainEnabled)
+            assertFalse(controls.isLapEnabled)
+            assertFalse(controls.isResetEnabled)
+
+            // START
+            StopwatchEngine.start()
+            fakeCurrentTime += 2500L
+
+            // 2. Running state
+            controls = com.devvardhan.value.core.AdaptiveLayoutHelper.getStopwatchControlRowState(
+                StopwatchStatus.Running,
+                lapsCount = 0
+            )
+            assertEquals("Cycle $cycle: Main should be PAUSE", com.devvardhan.value.core.AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, controls.mainAction)
+            assertTrue(controls.isMainEnabled)
+            assertTrue(controls.isLapEnabled)
+            assertFalse(controls.isResetEnabled)
+
+            // LAP
+            val lap = StopwatchEngine.lap()
+            assertNotNull("Cycle $cycle: Lap must be recorded", lap)
+            assertEquals(1, StopwatchEngine.snapshot.value.laps.size)
+
+            fakeCurrentTime += 1500L
+
+            // PAUSE
+            StopwatchEngine.pause()
+            controls = com.devvardhan.value.core.AdaptiveLayoutHelper.getStopwatchControlRowState(
+                StopwatchStatus.Paused,
+                lapsCount = 1
+            )
+            assertEquals("Cycle $cycle: Main should be RESUME", com.devvardhan.value.core.AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.RESUME, controls.mainAction)
+            assertTrue(controls.isMainEnabled)
+            assertFalse(controls.isLapEnabled)
+            assertTrue(controls.isResetEnabled)
+
+            // RESUME
+            StopwatchEngine.resume()
+            fakeCurrentTime += 1000L
+
+            // RESET
+            StopwatchEngine.pause()
+            StopwatchEngine.reset()
+            assertEquals("Cycle $cycle: Must be Idle after reset", StopwatchStatus.Idle, StopwatchEngine.snapshot.value.status)
+            assertEquals(0, StopwatchEngine.snapshot.value.laps.size)
+
+            // --- Fullscreen Auto-Hide Simulation in this cycle ---
+            autoHide.show()
+            assertTrue("Cycle $cycle: Fullscreen controls visible on entry", autoHide.isVisible)
+
+            // Let 3s pass: controls must auto-hide
+            fakeCurrentTime += 3000L
+            assertTrue(autoHide.checkTimeout(fakeCurrentTime))
+            assertFalse("Cycle $cycle: Controls should be hidden after 3s", autoHide.isVisible)
+
+            // Screen touch: must be consumed to reveal controls, without triggering buttons
+            val consumed = autoHide.onTouch()
+            assertTrue("Cycle $cycle: Reveal touch must be consumed", consumed)
+            assertTrue("Cycle $cycle: Controls must reappear", autoHide.isVisible)
+
+            // Button press restarts the auto-hide timer
+            autoHide.onControlPressed()
+            fakeCurrentTime += 2000L
+            assertFalse("Cycle $cycle: Controls still visible 2s after press", autoHide.checkTimeout(fakeCurrentTime))
+            fakeCurrentTime += 1000L
+            assertTrue("Cycle $cycle: Controls hide 3s after press", autoHide.checkTimeout(fakeCurrentTime))
+            assertFalse(autoHide.isVisible)
+        }
     }
 }
 

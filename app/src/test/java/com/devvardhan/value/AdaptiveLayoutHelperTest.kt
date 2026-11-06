@@ -162,34 +162,55 @@ class AdaptiveLayoutHelperTest {
     }
 
     @Test
-    fun testStopwatchButtonsStateTransitions() {
-        // 1. Idle state: 1 full-width Start button
-        val idleState = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Idle)
-        assertTrue(idleState.isFullWidthSingleButton)
-        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.START, idleState.primaryAction)
-        assertTrue(idleState.isPrimaryEnabled)
-        assertNull(idleState.secondaryAction)
+    fun testStopwatchControlRowStateTransitions() {
+        // 1. Idle state without laps: Lap=disabled, Main=Start (enabled), Reset=disabled
+        val idle0 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Idle, lapsCount = 0)
+        assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.START, idle0.mainAction)
+        assertTrue(idle0.isMainEnabled)
+        assertFalse("Lap must be disabled when Idle", idle0.isLapEnabled)
+        assertFalse("Reset must be disabled when Idle with 0 laps", idle0.isResetEnabled)
 
-        // 2. Running state with 0 laps: Lap (enabled) + Pause (primary)
-        val runningState0 = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Running, lapsCount = 0)
-        assertFalse(runningState0.isFullWidthSingleButton)
-        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.PAUSE, runningState0.primaryAction)
-        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.LAP, runningState0.secondaryAction)
-        assertTrue(runningState0.isPrimaryEnabled)
-        assertTrue(runningState0.isSecondaryEnabled)
+        // 2. Idle state with accumulated laps: Reset=enabled to allow clearing laps
+        val idleWithLaps = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Idle, lapsCount = 3)
+        assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.START, idleWithLaps.mainAction)
+        assertTrue(idleWithLaps.isMainEnabled)
+        assertFalse("Lap must be disabled when Idle", idleWithLaps.isLapEnabled)
+        assertTrue("Reset must be enabled when Idle with laps", idleWithLaps.isResetEnabled)
 
-        // 3. Running state with 99 laps (maxed): Lap button becomes disabled
-        val runningState99 = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Running, lapsCount = 99)
-        assertTrue(runningState99.isPrimaryEnabled)
-        assertFalse("Lap button disabled at 99 laps", runningState99.isSecondaryEnabled)
+        // 3. Running state without laps: Lap=enabled, Main=Pause (enabled), Reset=disabled
+        val running0 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Running, lapsCount = 0)
+        assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, running0.mainAction)
+        assertTrue(running0.isMainEnabled)
+        assertTrue("Lap must be enabled when Running", running0.isLapEnabled)
+        assertFalse("Reset must be disabled when Running", running0.isResetEnabled)
 
-        // 4. Paused state: Reset (secondary) + Resume (primary)
-        val pausedState = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Paused, lapsCount = 10)
-        assertFalse(pausedState.isFullWidthSingleButton)
-        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.RESUME, pausedState.primaryAction)
-        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.RESET, pausedState.secondaryAction)
-        assertTrue(pausedState.isPrimaryEnabled)
-        assertTrue(pausedState.isSecondaryEnabled)
+        // 4. Running state with laps (< 99): Lap=enabled, Reset=disabled
+        val running10 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Running, lapsCount = 10)
+        assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, running10.mainAction)
+        assertTrue(running10.isMainEnabled)
+        assertTrue("Lap must be enabled under 99 laps", running10.isLapEnabled)
+        assertFalse("Reset must be disabled when Running", running10.isResetEnabled)
+
+        // 5. Running state with 99 laps (maxed): Lap becomes disabled
+        val running99 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Running, lapsCount = 99)
+        assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.PAUSE, running99.mainAction)
+        assertTrue(running99.isMainEnabled)
+        assertFalse("Lap must be disabled when max laps (99) reached", running99.isLapEnabled)
+        assertFalse("Reset must be disabled when Running", running99.isResetEnabled)
+
+        // 6. Paused state without laps: Lap=disabled, Main=Resume (enabled), Reset=enabled
+        val paused0 = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Paused, lapsCount = 0)
+        assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.RESUME, paused0.mainAction)
+        assertTrue(paused0.isMainEnabled)
+        assertFalse("Lap must be disabled when Paused", paused0.isLapEnabled)
+        assertTrue("Reset must be enabled when Paused", paused0.isResetEnabled)
+
+        // 7. Paused state with laps: Lap=disabled, Main=Resume (enabled), Reset=enabled
+        val pausedWithLaps = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Paused, lapsCount = 5)
+        assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.RESUME, pausedWithLaps.mainAction)
+        assertTrue(pausedWithLaps.isMainEnabled)
+        assertFalse("Lap must be disabled when Paused", pausedWithLaps.isLapEnabled)
+        assertTrue("Reset must be enabled when Paused", pausedWithLaps.isResetEnabled)
     }
 
     @Test
