@@ -204,19 +204,26 @@ object CellSizeHelper {
         )
     }
 
+    const val INNER_RING_SAFE_FACTOR = 0.76f
+
     /**
-     * Sizing helper for Concentric Rings text:
+     * Sizing helper for Concentric Rings & Circle text:
      * Calculates the exact font size such that the entire text box
-     * (digits + centis slot + label) fits inside the inner ring circle,
-     * satisfying: (textWidth/2)^2 + (textHeight/2)^2 <= (innerRadius * 0.82)^2.
+     * (digits + centis slot + optional label) fits inside the inner ring circle,
+     * satisfying: (textWidth/2)^2 + (textHeight/2)^2 <= (innerRadius * safetyFactor)^2.
+     *
+     * - Uses safetyFactor = 0.76f to provide clear breathing room and prevent touching rings.
+     * - Accounts for monospace glyph advance ratio (0.64f including letterSpacing).
+     * - When hasLabel is true, accounts for the column height (main digits + gap + label).
      */
     fun calculateInnerRingSafeFontSize(
         innerRadius: Float,
         hasHours: Boolean,
         isStopwatch: Boolean,
-        hasLabel: Boolean = false
+        hasLabel: Boolean = false,
+        safetyFactor: Float = INNER_RING_SAFE_FACTOR
     ): Float {
-        val safeRadius = innerRadius * 0.82f
+        val safeRadius = innerRadius * safetyFactor
         if (safeRadius <= 1f) return 10f
 
         // Effective char count:
@@ -229,8 +236,9 @@ object CellSizeHelper {
             else -> 8.0f // Timer HH:MM:SS
         }
 
-        val widthFactor = (effectiveCharCount * MONOSPACE_GLYPH_WIDTH_FACTOR) / 2f
-        val heightRatio = if (hasLabel) 1.55f else 1.0f
+        val charWidthFactor = 0.64f
+        val widthFactor = (effectiveCharCount * charWidthFactor) / 2f
+        val heightRatio = if (hasLabel) 1.60f else 1.0f
         val heightFactor = heightRatio / 2f
 
         val diagonalFactor = sqrt(widthFactor * widthFactor + heightFactor * heightFactor)

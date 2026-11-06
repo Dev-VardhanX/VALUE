@@ -266,12 +266,13 @@ private fun StylePreviewCard(
     val isStopwatchMode = mode == AppMode.STOPWATCH
     val cardShape = RoundedCornerShape(22.dp)
     val isWide = theme == TimerTheme.THREE_BOX || theme == TimerTheme.FLIP_CLOCK
-    val totalDemoDuration = if (isWide && !isStopwatchMode) 75_420_000L else 10_000L
+    val hasMultiUnitDemo = isWide || theme == TimerTheme.CONCENTRIC_RINGS
+    val totalDemoDuration = if (hasMultiUnitDemo && !isStopwatchMode) 75_420_000L else 10_000L
 
-    // Demo clock: For Three Box / Flip Clock, show HH:MM:SS with all six digits visible
+    // Demo clock: For Three Box / Flip Clock / Concentric Rings, show HH:MM:SS with all units active
     var demoMillis by remember {
         mutableLongStateOf(
-            if (isWide) {
+            if (hasMultiUnitDemo) {
                 if (isStopwatchMode) 3_665_000L else 37_240_000L
             } else {
                 if (isStopwatchMode) 3_500L else 7_200L
@@ -279,17 +280,17 @@ private fun StylePreviewCard(
         )
     }
 
-    LaunchedEffect(isAnimated, isWide, isStopwatchMode) {
+    LaunchedEffect(isAnimated, hasMultiUnitDemo, isStopwatchMode) {
         if (!isAnimated) return@LaunchedEffect
         val startNano = System.nanoTime()
         while (true) {
             withFrameNanos { frameNano ->
                 val elapsed = (frameNano - startNano) / 1_000_000L
-                demoMillis = if (isWide) {
+                demoMillis = if (hasMultiUnitDemo) {
                     if (isStopwatchMode) {
-                        3_665_000L + (elapsed % 10_000L) // 01:01:05.xx to 01:01:15.xx (all 6 digits visible)
+                        3_665_000L + (elapsed % 10_000L) // 01:01:05.xx to 01:01:15.xx (all units active)
                     } else {
-                        37_240_000L - (elapsed % 10_000L) // ~10h 20m 40s (all 6 digits visible)
+                        37_240_000L - (elapsed % 10_000L) // ~10h 20m 40s (all 3 rings active)
                     }
                 } else {
                     if (isStopwatchMode) {

@@ -122,8 +122,15 @@ fun ConcentricRingsTimerTheme(
         val strokeWidth = geometry.strokeWidth.dp
         val ringGap = geometry.ringGap.dp
         val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
-        val hasLabel = isPaused || (!isStopwatch)
-        val clearInnerRadius = geometry.innerDiameter / 2f
+        val rawInnerRadius = geometry.innerDiameter / 2f
+        // Stroke is centered on the arc, so the actual clear inner radius inside the stroke is:
+        val clearInnerRadius = (rawInnerRadius - (geometry.strokeWidth / 2f)).coerceAtLeast(10f)
+
+        // In compact views (clearInnerRadius < 52f, such as style gallery preview cards),
+        // suppress the 14-char TOTAL subtext so the main time digits remain large, clear,
+        // and never touch or cross the inner ring. Show PAUSED if paused, or show TOTAL on main screens.
+        val showSubText = isPaused || (!isStopwatch && clearInnerRadius >= 52f)
+        val hasLabel = showSubText
 
         val fontSize = remember(clearInnerRadius, hasHours, isStopwatch, hasLabel) {
             CellSizeHelper.calculateInnerRingSafeFontSize(
@@ -267,10 +274,11 @@ fun ConcentricRingsTimerTheme(
                     }
 
                     if (isPaused) {
-                        Spacer(modifier = Modifier.height(2.dp))
+                        val spacerHeight = (clearInnerRadius * 0.08f).coerceIn(3f, 8f).dp
+                        Spacer(modifier = Modifier.height(spacerHeight))
                         Text(
                             text = "PAUSED",
-                            fontSize = (fontSize.value * 0.28f).coerceIn(9f, 13f).sp,
+                            fontSize = (fontSize.value * 0.28f).coerceIn(8f, 13f).sp,
                             fontWeight = FontWeight.Medium,
                             color = SubtleGray,
                             letterSpacing = 1.5.sp,
@@ -296,18 +304,21 @@ fun ConcentricRingsTimerTheme(
                         softWrap = false
                     )
 
-                    Spacer(modifier = Modifier.height(2.dp))
-                    val subText = if (isPaused) "PAUSED" else "TOTAL ${TimeUtils.formatHms(totalMillis)}"
-                    Text(
-                        text = subText,
-                        fontSize = (fontSize.value * 0.25f).coerceIn(8f, 12f).sp,
-                        fontWeight = FontWeight.Medium,
-                        color = SubtleGray,
-                        letterSpacing = 1.5.sp,
-                        maxLines = 1,
-                        softWrap = false,
-                        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
-                    )
+                    if (showSubText) {
+                        val spacerHeight = (clearInnerRadius * 0.08f).coerceIn(3f, 8f).dp
+                        Spacer(modifier = Modifier.height(spacerHeight))
+                        val subText = if (isPaused) "PAUSED" else "TOTAL ${TimeUtils.formatHms(totalMillis)}"
+                        Text(
+                            text = subText,
+                            fontSize = (fontSize.value * 0.28f).coerceIn(8f, 13f).sp,
+                            fontWeight = FontWeight.Medium,
+                            color = SubtleGray,
+                            letterSpacing = 1.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
+                        )
+                    }
                 }
             }
         }
