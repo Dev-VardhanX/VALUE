@@ -68,6 +68,14 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    val hasChosenStyleFlow = preferencesRepo.hasChosenStyleFlow
+
+    fun setHasChosenStyle(chosen: Boolean = true) {
+        viewModelScope.launch {
+            preferencesRepo.setHasChosenStyle(chosen)
+        }
+    }
+
     fun setTheme(theme: TimerTheme) {
         viewModelScope.launch {
             _uiState.update { it.copy(theme = theme) }

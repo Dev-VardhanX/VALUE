@@ -76,8 +76,12 @@ fun ThreeBoxTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val dims = remember(maxWidth.value, maxHeight.value) {
-            AdaptiveLayoutHelper.calculateThreeBoxDimensions(maxWidth.value, maxHeight.value)
+        val dims = remember(maxWidth.value, maxHeight.value, isStopwatch) {
+            AdaptiveLayoutHelper.calculateThreeBoxDimensions(
+                availableWidth = maxWidth.value,
+                availableHeight = maxHeight.value,
+                isStopwatch = isStopwatch
+            )
         }
 
         val panelWidth = dims.panelWidth.dp

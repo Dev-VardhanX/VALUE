@@ -17,21 +17,21 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
 import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.model.AppMode
@@ -44,21 +44,18 @@ import com.devvardhan.value.ui.components.ModeSwitch
 import com.devvardhan.value.ui.components.PrimaryPillButton
 import com.devvardhan.value.ui.components.SecondaryPillButton
 import com.devvardhan.value.ui.components.StopwatchVisual
-import com.devvardhan.value.ui.components.ThemeBottomSheet
 import com.devvardhan.value.ui.components.rememberStopwatchElapsedMillis
 import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
+import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Stopwatch Screen:
  * Displays real-time count-up visual themes, millisecond-accurate frame updates,
- * tactile Reset/Lap/Start/Pause controls, and recorded laps.
- * Designed with dedicated 360dp phone ergonomics: uncrowded header, non-wrapping pill buttons,
- * and a permanently visible lap list.
+ * unified top header, tactile Reset/Lap/Start/Pause controls, and recorded laps.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StopwatchScreen(
     status: StopwatchStatus,
@@ -69,7 +66,7 @@ fun StopwatchScreen(
     currentMode: AppMode,
     isTimerRunning: Boolean,
     onModeSelected: (AppMode) -> Unit,
-    onThemeChange: (TimerTheme) -> Unit,
+    onOpenGallery: () -> Unit,
     onStartClick: () -> Unit,
     onPauseClick: () -> Unit,
     onResumeClick: () -> Unit,
@@ -78,8 +75,6 @@ fun StopwatchScreen(
     onFullscreenClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showThemeSheet by remember { mutableStateOf(false) }
-
     // Decoupled 60fps frame clock
     val liveElapsedMillis by rememberStopwatchElapsedMillis(
         status = status,
@@ -99,14 +94,14 @@ fun StopwatchScreen(
         val isLandscape = maxWidth > maxHeight * 1.15f
 
         if (isLandscape) {
-            // Landscape layout: visual on the left, controls and lap list on the right
+            // Landscape layout: visual on the left (~58%), controls and lap list on the right
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left pane: Stopwatch visual taking ~58% width
+                // Left pane: Stopwatch visual
                 Box(
                     modifier = Modifier
                         .weight(1.3f)
@@ -121,7 +116,7 @@ fun StopwatchScreen(
                     )
                 }
 
-                // Right pane: Mode switch, header buttons, action controls, and lap list
+                // Right pane: Header row, Mode switch, action controls, and lap list
                 Column(
                     modifier = Modifier
                         .weight(1.0f)
@@ -130,18 +125,18 @@ fun StopwatchScreen(
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Header row: Mode Switch + Palette + Fullscreen
+                    // Header row: VALUE wordmark on left, Style + Fullscreen on right
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ModeSwitch(
-                            currentMode = currentMode,
-                            isTimerRunning = isTimerRunning,
-                            isStopwatchRunning = isRunning,
-                            onModeSelected = onModeSelected,
-                            modifier = Modifier.width(200.dp)
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SubtleGray,
+                            letterSpacing = 3.sp
                         )
 
                         Row(
@@ -149,15 +144,15 @@ fun StopwatchScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = { showThemeSheet = true },
+                                onClick = onOpenGallery,
                                 modifier = Modifier
-                                    .size(42.dp)
+                                    .size(40.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
-                                    .semantics { contentDescription = "Choose theme" }
+                                    .semantics { contentDescription = "Choose style gallery" }
                             ) {
                                 Icon(
                                     imageVector = AppIcons.Palette,
-                                    contentDescription = stringResource(R.string.action_change_theme),
+                                    contentDescription = stringResource(R.string.action_style),
                                     tint = PureWhite,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -166,7 +161,7 @@ fun StopwatchScreen(
                             IconButton(
                                 onClick = onFullscreenClick,
                                 modifier = Modifier
-                                    .size(42.dp)
+                                    .size(40.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Enter fullscreen mode" }
                             ) {
@@ -180,16 +175,26 @@ fun StopwatchScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                    // Action buttons (clean 1 or 2 button states)
+                    ModeSwitch(
+                        currentMode = currentMode,
+                        isTimerRunning = isTimerRunning,
+                        isStopwatchRunning = isRunning,
+                        onModeSelected = onModeSelected,
+                        modifier = Modifier.width(200.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Action buttons (1 or 2 button states)
                     when (status) {
                         StopwatchStatus.Idle -> {
                             PrimaryPillButton(
                                 text = stringResource(R.string.action_start),
                                 onClick = onStartClick,
                                 modifier = Modifier.fillMaxWidth(),
-                                height = 52.dp
+                                height = 50.dp
                             )
                         }
                         StopwatchStatus.Running -> {
@@ -203,13 +208,13 @@ fun StopwatchScreen(
                                     onClick = onLapClick,
                                     enabled = isLapEnabled,
                                     modifier = Modifier.weight(1f),
-                                    height = 52.dp
+                                    height = 50.dp
                                 )
                                 PrimaryPillButton(
                                     text = stringResource(R.string.action_pause),
                                     onClick = onPauseClick,
                                     modifier = Modifier.weight(1f),
-                                    height = 52.dp
+                                    height = 50.dp
                                 )
                             }
                         }
@@ -223,19 +228,19 @@ fun StopwatchScreen(
                                     text = stringResource(R.string.action_reset),
                                     onClick = onResetClick,
                                     modifier = Modifier.weight(1f),
-                                    height = 52.dp
+                                    height = 50.dp
                                 )
                                 PrimaryPillButton(
                                     text = stringResource(R.string.action_resume),
                                     onClick = onResumeClick,
                                     modifier = Modifier.weight(1f),
-                                    height = 52.dp
+                                    height = 50.dp
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Lap List filling remainder
                     LapList(
@@ -247,7 +252,12 @@ fun StopwatchScreen(
                 }
             }
         } else {
-            // Portrait layout: Header -> Slim Actions -> Visual (42%) -> Controls -> Lap list (remaining)
+            // Portrait layout:
+            // 1. Top row: VALUE wordmark on left, Style + Fullscreen on right
+            // 2. Directly below: ModeSwitch centered
+            // 3. Visual (~44% height)
+            // 4. Action controls (Start / Lap + Pause / Reset + Resume)
+            // 5. Lap list filling all remaining height
             val heights = remember(maxHeight.value) {
                 AdaptiveLayoutHelper.calculateStopwatchPortraitHeights(maxHeight.value)
             }
@@ -255,14 +265,68 @@ fun StopwatchScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Row 1: Mode Switch centered
+                // Row 1: Wordmark on left, Style & Fullscreen on right
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SubtleGray,
+                        letterSpacing = 3.sp
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = onOpenGallery,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .border(1.dp, BorderSubtle, CircleShape)
+                                .semantics { contentDescription = "Choose style gallery" }
+                        ) {
+                            Icon(
+                                imageVector = AppIcons.Palette,
+                                contentDescription = stringResource(R.string.action_style),
+                                tint = PureWhite,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onFullscreenClick,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .border(1.dp, BorderSubtle, CircleShape)
+                                .semantics { contentDescription = "Enter fullscreen mode" }
+                        ) {
+                            Icon(
+                                imageVector = AppIcons.Fullscreen,
+                                contentDescription = stringResource(R.string.action_fullscreen),
+                                tint = PureWhite,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Row 2: ModeSwitch directly below, centered (identical metrics to SetTimer and RunningTimer)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 2.dp),
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     ModeSwitch(
@@ -274,53 +338,12 @@ fun StopwatchScreen(
                     )
                 }
 
-                // Row 2: Slim bar right-aligned above visual for Palette & Fullscreen
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { showThemeSheet = true },
-                        modifier = Modifier
-                            .size(42.dp)
-                            .border(1.dp, BorderSubtle, CircleShape)
-                            .semantics { contentDescription = "Choose theme" }
-                    ) {
-                        Icon(
-                            imageVector = AppIcons.Palette,
-                            contentDescription = stringResource(R.string.action_change_theme),
-                            tint = PureWhite,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    IconButton(
-                        onClick = onFullscreenClick,
-                        modifier = Modifier
-                            .size(42.dp)
-                            .border(1.dp, BorderSubtle, CircleShape)
-                            .semantics { contentDescription = "Enter fullscreen mode" }
-                    ) {
-                        Icon(
-                            imageVector = AppIcons.Fullscreen,
-                            contentDescription = stringResource(R.string.action_fullscreen),
-                            tint = PureWhite,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
-                // Visual container (~40-42% of height, never floating in empty space)
+                // Visual container (~44% of height, fills available box without dead space)
                 Box(
                     modifier = Modifier
                         .height(heights.visualHeight.dp)
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     StopwatchVisual(
@@ -399,15 +422,6 @@ fun StopwatchScreen(
                 )
             }
         }
-
-        if (showThemeSheet) {
-            ThemeBottomSheet(
-                selectedTheme = theme,
-                onThemeSelected = onThemeChange,
-                onDismissRequest = { showThemeSheet = false },
-                availableThemes = TimerTheme.stopwatchThemes
-            )
-        }
     }
 }
 
@@ -436,7 +450,7 @@ private fun PreviewStopwatch360x640ZeroLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
-            onThemeChange = {},
+            onOpenGallery = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},
@@ -460,7 +474,7 @@ private fun PreviewStopwatch360x640FiveLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
-            onThemeChange = {},
+            onOpenGallery = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},
@@ -484,7 +498,7 @@ private fun PreviewStopwatch412x915Font13ZeroLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = true,
             onModeSelected = {},
-            onThemeChange = {},
+            onOpenGallery = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},
@@ -495,55 +509,7 @@ private fun PreviewStopwatch412x915Font13ZeroLaps() {
     }
 }
 
-@Preview(name = "4. Portrait 412x915 Font 1.3 (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 412, heightDp = 915, fontScale = 1.3f)
-@Composable
-private fun PreviewStopwatch412x915Font13FiveLaps() {
-    ValueTimerTheme {
-        StopwatchScreen(
-            status = StopwatchStatus.Paused,
-            startTime = 0L,
-            accumulatedMillis = 78900L,
-            laps = sampleLaps5,
-            theme = TimerTheme.FLIP_CLOCK,
-            currentMode = AppMode.STOPWATCH,
-            isTimerRunning = false,
-            onModeSelected = {},
-            onThemeChange = {},
-            onStartClick = {},
-            onPauseClick = {},
-            onResumeClick = {},
-            onLapClick = {},
-            onResetClick = {},
-            onFullscreenClick = {}
-        )
-    }
-}
-
-@Preview(name = "5. Landscape (0 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
-@Composable
-private fun PreviewStopwatchLandscapeZeroLaps() {
-    ValueTimerTheme {
-        StopwatchScreen(
-            status = StopwatchStatus.Idle,
-            startTime = 0L,
-            accumulatedMillis = 0L,
-            laps = emptyList(),
-            theme = TimerTheme.CIRCLE,
-            currentMode = AppMode.STOPWATCH,
-            isTimerRunning = false,
-            onModeSelected = {},
-            onThemeChange = {},
-            onStartClick = {},
-            onPauseClick = {},
-            onResumeClick = {},
-            onLapClick = {},
-            onResetClick = {},
-            onFullscreenClick = {}
-        )
-    }
-}
-
-@Preview(name = "6. Landscape (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "4. Landscape (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
 private fun PreviewStopwatchLandscapeFiveLaps() {
     ValueTimerTheme {
@@ -556,55 +522,7 @@ private fun PreviewStopwatchLandscapeFiveLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
-            onThemeChange = {},
-            onStartClick = {},
-            onPauseClick = {},
-            onResumeClick = {},
-            onLapClick = {},
-            onResetClick = {},
-            onFullscreenClick = {}
-        )
-    }
-}
-
-@Preview(name = "7. Tablet (0 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1200, heightDp = 800)
-@Composable
-private fun PreviewStopwatchTabletZeroLaps() {
-    ValueTimerTheme {
-        StopwatchScreen(
-            status = StopwatchStatus.Idle,
-            startTime = 0L,
-            accumulatedMillis = 0L,
-            laps = emptyList(),
-            theme = TimerTheme.THREE_BOX,
-            currentMode = AppMode.STOPWATCH,
-            isTimerRunning = false,
-            onModeSelected = {},
-            onThemeChange = {},
-            onStartClick = {},
-            onPauseClick = {},
-            onResumeClick = {},
-            onLapClick = {},
-            onResetClick = {},
-            onFullscreenClick = {}
-        )
-    }
-}
-
-@Preview(name = "8. Tablet (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1200, heightDp = 800)
-@Composable
-private fun PreviewStopwatchTabletFiveLaps() {
-    ValueTimerTheme {
-        StopwatchScreen(
-            status = StopwatchStatus.Running,
-            startTime = System.currentTimeMillis() - 78900L,
-            accumulatedMillis = 78900L,
-            laps = sampleLaps5,
-            theme = TimerTheme.CIRCLE,
-            currentMode = AppMode.STOPWATCH,
-            isTimerRunning = false,
-            onModeSelected = {},
-            onThemeChange = {},
+            onOpenGallery = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},

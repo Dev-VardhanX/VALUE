@@ -17,20 +17,20 @@ The observation of "~20 MB" stems from inspecting the **unminified debug APK (`a
 
 ## 2. Before vs. After Size Comparison
 
-| Artifact / Metric | Initial (Pre-Optimization) | Post-Optimization (Timer Only) | Current (Timer + Stopwatch) | Net Change vs. Initial |
-| :--- | :--- | :--- | :--- | :--- |
-| **Debug APK (`app-debug.apk`)** | 19,280,898 bytes (18.39 MB) | 11,964,342 bytes (11.41 MB) | **12,063,374 bytes (11.50 MB)** | **-7.22 MB (-37.5%)** |
-| **Release APK (`app-release.apk`)** | 1,807,604 bytes (1.72 MB) | 1,673,306 bytes (1.59 MB) | **1,706,526 bytes (1.63 MB)** | **-101,078 bytes (-5.6%)** |
-| **Release AAB (`app-release.aab`)** | 3,732,166 bytes (3.56 MB) | 3,696,230 bytes (3.52 MB) | **3,777,707 bytes (3.60 MB)** | **+45,541 bytes (+1.2%)** |
-| **`resources.arsc` in Release** | 134,376 bytes | 12,572 bytes | **~13 KB** | **-121 KB (-90.3%)** |
-| **Estimated arm64 Download Size** | ~1.65 MB | ~1.50 MB | **~1.53 MB** | **-120 KB** |
-| **Estimated arm64 Install Size** | ~5.3 MB | ~5.1 MB | **~5.2 MB** | **-100 KB** |
+| Artifact / Metric | Initial (Pre-Optimization) | Post-Optimization (Timer Only) | Timer + Stopwatch | Current (With Style Gallery) | Net Change vs. Initial |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Debug APK (`app-debug.apk`)** | 19,280,898 bytes (18.39 MB) | 11,964,342 bytes (11.41 MB) | 12,063,374 bytes (11.50 MB) | **12,112,946 bytes (11.55 MB)** | **-7.17 MB (-37.2%)** |
+| **Release APK (`app-release.apk`)** | 1,807,604 bytes (1.72 MB) | 1,673,306 bytes (1.59 MB) | 1,706,526 bytes (1.63 MB) | **1,672,710 bytes (1.59 MB)** | **-134,894 bytes (-7.5%)** |
+| **Release AAB (`app-release.aab`)** | 3,732,166 bytes (3.56 MB) | 3,696,230 bytes (3.52 MB) | 3,777,707 bytes (3.60 MB) | **3,719,543 bytes (3.55 MB)** | **-12,623 bytes (-0.3%)** |
+| **`resources.arsc` in Release** | 134,376 bytes | 12,572 bytes | ~13 KB | **~13 KB** | **-121 KB (-90.3%)** |
+| **Estimated arm64 Download Size** | ~1.65 MB | ~1.50 MB | ~1.53 MB | **~1.50 MB** | **-150 KB** |
+| **Estimated arm64 Install Size** | ~5.3 MB | ~5.1 MB | ~5.2 MB | **~5.1 MB** | **-200 KB** |
 
 ---
 
 ## 3. Release APK Internal Size Breakdown (Current Release)
 
-Unzipping `app-release.apk` (1,706,526 bytes total):
+Unzipping `app-release.apk` (1,672,710 bytes total):
 
 | Component / Directory | Compressed Size | % of Total Size | Notes |
 | :--- | :--- | :--- | :--- |

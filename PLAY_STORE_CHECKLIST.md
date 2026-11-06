@@ -28,7 +28,7 @@ TIMER FEATURES:
   5. Flip Clock: Tactile split-flap digit cards with smooth 3D rotation animations.
   6. Liquid Fill: Fluid vessel container with animated sinusoidal waves and automatic text color inversion.
   7. Dot Grid: 60-dot matrix that transitions dot-by-dot as time elapses.
-• Live Theme Switcher: Preview and switch themes on the fly during an active countdown without interrupting your timer.
+• Style Gallery with Live Previews: Browse all architectural themes in an elegant horizontal pager with live demo clocks before choosing your style.
 • Immersive Fullscreen Mode: Hides status and navigation bars completely for distraction-free focus, with auto-scaling typography for landscape and portrait.
 
 STOPWATCH FEATURES:
@@ -51,7 +51,7 @@ ENGINE & ARCHITECTURE:
 | :--- | :--- | :--- | :--- |
 | **App Icon** | 512 x 512 px | 32-bit PNG | Pure black background with white ring (already generated in project) |
 | **Feature Graphic** | 1024 x 500 px | PNG or JPEG | Pure black banner with clean white "VALUE" typography and countdown/stopwatch digits |
-| **Phone Screenshots** | 1080 x 2400 px (or 1080 x 1920 px) | PNG or JPEG | Minimum 2 screenshots (recommended: 1. Timer Set Screen, 2. Timer Scoreboard theme, 3. Stopwatch running with Lap list, 4. Fullscreen Landscape Stopwatch) |
+| **Phone Screenshots** | 1080 x 2400 px (or 1080 x 1920 px) | PNG or JPEG | Minimum 2 screenshots (recommended: 1. Style Gallery Screen with live theme previews, 2. Timer Set Screen, 3. Timer Scoreboard theme, 4. Stopwatch running with Lap list, 5. Fullscreen Landscape Stopwatch) |
 | **7-inch Tablet** | 1200 x 1920 px | PNG or JPEG | Minimum 1 screenshot |
 | **10-inch Tablet** | 1600 x 2560 px | PNG or JPEG | Minimum 1 screenshot |
 

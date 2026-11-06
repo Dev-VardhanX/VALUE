@@ -1,6 +1,8 @@
 package com.devvardhan.value.core
 
+import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.StopwatchStatus
+import com.devvardhan.value.model.TimerTheme
 
 /**
  * Pure calculation helpers for adaptive portrait, landscape, and tablet responsive layouts.
@@ -96,18 +98,21 @@ object AdaptiveLayoutHelper {
 
     fun calculateThreeBoxDimensions(
         availableWidth: Float,
-        availableHeight: Float
+        availableHeight: Float,
+        isStopwatch: Boolean = false
     ): ThreeBoxDimensions {
         val landscape = isLandscape(availableWidth, availableHeight, 1.15f)
         return if (landscape) {
-            val panelHeight = (availableHeight * 0.72f).coerceAtLeast(110f)
-            val panelWidth = minOf((availableWidth - 80f) / 3.2f, panelHeight * 0.95f).coerceAtLeast(70f)
-            val fontSize = (panelHeight * 0.38f).coerceIn(26f, 72f)
+            val panelHeight = (availableHeight * 0.82f).coerceAtLeast(110f)
+            val centisAllowance = if (isStopwatch) 48f else 0f
+            val panelWidth = minOf((availableWidth - 64f - centisAllowance) / 3.1f, panelHeight * 0.95f).coerceAtLeast(65f)
+            val fontSize = (panelHeight * 0.38f).coerceIn(24f, 72f)
             ThreeBoxDimensions(panelWidth = panelWidth, panelHeight = panelHeight, fontSize = fontSize)
         } else {
-            val panelWidth = ((availableWidth - 40f) / 3.1f).coerceIn(72f, 160f)
-            val panelHeight = minOf(panelWidth * 1.30f, availableHeight * 0.88f).coerceIn(92f, 220f)
-            val fontSize = (panelHeight * 0.40f).coerceIn(24f, 60f)
+            val centisAllowance = if (isStopwatch) 52f else 0f
+            val panelWidth = ((availableWidth - 36f - centisAllowance) / 3.05f).coerceIn(60f, 150f)
+            val panelHeight = minOf(panelWidth * 1.32f, availableHeight * 0.92f).coerceIn(88f, 240f)
+            val fontSize = (panelHeight * 0.40f).coerceIn(24f, 64f)
             ThreeBoxDimensions(panelWidth = panelWidth, panelHeight = panelHeight, fontSize = fontSize)
         }
     }
@@ -281,5 +286,31 @@ object AdaptiveLayoutHelper {
                 isFullWidthSingleButton = false
             )
         }
+    }
+
+    /**
+     * Returns the styles displayed in the gallery based on the mode.
+     * Timer: All 7 styles.
+     * Stopwatch: 5 stopwatch-compatible styles (excluding Hourglass and Liquid Fill).
+     */
+    fun getGalleryStyles(mode: AppMode): List<TimerTheme> {
+        return when (mode) {
+            AppMode.TIMER -> TimerTheme.entries
+            AppMode.STOPWATCH -> TimerTheme.stopwatchThemes
+        }
+    }
+
+    /**
+     * Determines whether the Style Gallery should be shown at application launch.
+     * Shows on very first launch only when no style was previously chosen AND
+     * neither timer nor stopwatch is currently running.
+     */
+    fun shouldShowGalleryAtLaunch(
+        hasChosenStyle: Boolean,
+        isTimerRunning: Boolean,
+        isStopwatchRunning: Boolean
+    ): Boolean {
+        if (isTimerRunning || isStopwatchRunning) return false
+        return !hasChosenStyle
     }
 }

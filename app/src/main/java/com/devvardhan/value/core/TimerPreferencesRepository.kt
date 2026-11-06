@@ -3,6 +3,7 @@ package com.devvardhan.value.core
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -33,12 +34,13 @@ data class LastSetDuration(
 
 /**
  * DataStore repository managing persistent user preferences, last configured timer duration,
- * and active timer session state for surviving process termination.
+ * active timer session state, and first-launch style selection flag.
  */
 class TimerPreferencesRepository(private val context: Context) {
 
     private object PreferencesKeys {
         val SELECTED_THEME = stringPreferencesKey("selected_theme")
+        val HAS_CHOSEN_STYLE = booleanPreferencesKey("has_chosen_style")
         val LAST_HOURS = intPreferencesKey("last_hours")
         val LAST_MINUTES = intPreferencesKey("last_minutes")
         val LAST_SECONDS = intPreferencesKey("last_seconds")
@@ -47,6 +49,10 @@ class TimerPreferencesRepository(private val context: Context) {
         val SESSION_TARGET_END_TIME = longPreferencesKey("session_target_end_time")
         val SESSION_TOTAL_MILLIS = longPreferencesKey("session_total_millis")
         val SESSION_PAUSED_REMAINING = longPreferencesKey("session_paused_remaining")
+    }
+
+    val hasChosenStyleFlow: Flow<Boolean> = context.timerDataStore.data.map { prefs ->
+        prefs[PreferencesKeys.HAS_CHOSEN_STYLE] ?: false
     }
 
     val selectedThemeFlow: Flow<TimerTheme> = context.timerDataStore.data.map { prefs ->
@@ -88,6 +94,12 @@ class TimerPreferencesRepository(private val context: Context) {
     suspend fun saveTheme(theme: TimerTheme) {
         context.timerDataStore.edit { prefs ->
             prefs[PreferencesKeys.SELECTED_THEME] = theme.name
+        }
+    }
+
+    suspend fun setHasChosenStyle(chosen: Boolean = true) {
+        context.timerDataStore.edit { prefs ->
+            prefs[PreferencesKeys.HAS_CHOSEN_STYLE] = chosen
         }
     }
 

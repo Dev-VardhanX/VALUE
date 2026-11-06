@@ -31,4 +31,11 @@
     <string name="notification_channel_stopwatch_name">Stopwatch</string>
     <string name="notification_channel_stopwatch_desc">Shows active stopwatch chronometer</string>
     <string name="notification_stopwatch_title">VALUE Stopwatch</string>
+    <string name="gallery_title">Choose your style</string>
+    <string name="gallery_subtitle">You can change it anytime</string>
+    <string name="action_style">Style</string>
+    <string name="action_select">Select</string>
+    <string name="action_selected">Selected</string>
+    <string name="action_close">Close</string>
+    <string name="style_prefix">Style: %s</string>
 </resources>
