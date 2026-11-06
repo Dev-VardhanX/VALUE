@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,7 @@ import com.devvardhan.value.ui.theme.SubtleGray
 
 /**
  * Minimal black-and-white segmented pill switch between Timer and Stopwatch.
+ * Fixed-size text with single line, no truncation, fits comfortably at font scale 1.3.
  * Displays an active status dot on unselected segments when that engine is currently running.
  */
 @Composable
@@ -105,6 +107,7 @@ private fun ModeSegment(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .defaultMinSize(minWidth = 98.dp)
             .clip(CircleShape)
             .background(bgColor)
             .clickable(
@@ -116,7 +119,7 @@ private fun ModeSegment(
                 role = Role.Tab
                 contentDescription = "$label tab, ${if (isSelected) "selected" else "not selected"}"
             }
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -126,13 +129,15 @@ private fun ModeSegment(
             Text(
                 text = label,
                 fontSize = 12.sp,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                 color = textColor,
-                letterSpacing = 0.5.sp
+                letterSpacing = 0.2.sp,
+                maxLines = 1,
+                softWrap = false
             )
 
             if (showActiveDot) {
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(5.dp))
                 Box(
                     modifier = Modifier
                         .size(5.dp)
@@ -143,4 +148,3 @@ private fun ModeSegment(
         }
     }
 }
-

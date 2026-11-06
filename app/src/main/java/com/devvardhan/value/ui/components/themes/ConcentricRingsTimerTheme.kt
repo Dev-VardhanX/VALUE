@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +41,7 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 4: Concentric Rings.
  * Outer = Hours, Middle = Minutes, Inner = Seconds.
- * In Stopwatch mode: all rings fill UP clockwise (hours cycles over 12h, min over 60m, sec over 60s).
+ * In Stopwatch mode: all rings fill UP clockwise. Digits are cleanly scaled to prevent inner ring clipping.
  */
 @Composable
 fun ConcentricRingsTimerTheme(
@@ -111,8 +113,8 @@ fun ConcentricRingsTimerTheme(
         val strokeWidth = geometry.strokeWidth.dp
         val ringGap = geometry.ringGap.dp
         val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
-        val fontFactor = if (hasHours) 0.18f else 0.22f
-        val fontSize = (geometry.innerDiameter * fontFactor).coerceIn(16f, 64f).sp
+        val fontFactor = if (hasHours) 0.16f else 0.20f
+        val fontSize = (geometry.innerDiameter * fontFactor).coerceIn(16f, 56f).sp
 
         Box(
             modifier = Modifier.size(diameter),
@@ -214,22 +216,53 @@ fun ConcentricRingsTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = formattedTime,
-                    fontSize = fontSize,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Light,
-                    color = PureWhite,
-                    letterSpacing = if (hasHours) 1.sp else 1.5.sp,
-                    maxLines = 1,
-                    softWrap = false
-                )
+                if (isStopwatch) {
+                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
+                    val centisStr = ".${TimeUtils.formatStopwatchCentiseconds(stopwatchElapsedMillis)}"
+
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = mainUnits,
+                            fontSize = fontSize,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Light,
+                            color = PureWhite,
+                            letterSpacing = if (hasHours) 0.5.sp else 1.sp,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = centisStr,
+                            fontSize = (fontSize.value * 0.40f).coerceIn(12f, 24f).sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Normal,
+                            color = SubtleGray,
+                            modifier = Modifier.padding(bottom = (fontSize.value * 0.08f).dp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else {
+                    Text(
+                        text = formattedTime,
+                        fontSize = fontSize,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Light,
+                        color = PureWhite,
+                        letterSpacing = if (hasHours) 1.sp else 1.5.sp,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
 
                 if (isPaused) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "PAUSED",
-                        fontSize = (fontSize.value * 0.30f).coerceIn(9f, 14f).sp,
+                        fontSize = (fontSize.value * 0.28f).coerceIn(9f, 13f).sp,
                         fontWeight = FontWeight.Medium,
                         color = SubtleGray,
                         letterSpacing = 2.sp,

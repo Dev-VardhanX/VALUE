@@ -50,7 +50,7 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 3: Three Box (Scoreboard).
  * Three scoreboard panels labelled HRS, MIN, SEC side-by-side with odometer rolling digit cells.
- * For Stopwatch: rolls upward (counting up) with small centiseconds display.
+ * For Stopwatch: rolls upward (counting up) with prominent baseline-aligned centiseconds display.
  */
 @Composable
 fun ThreeBoxTimerTheme(
@@ -82,14 +82,15 @@ fun ThreeBoxTimerTheme(
 
         val panelWidth = dims.panelWidth.dp
         val panelHeight = dims.panelHeight.dp
-        val cellWidth = ((dims.panelWidth - 28f) / 2f).coerceAtLeast(28f).dp
-        val cellHeight = (dims.panelHeight - 44f).coerceAtLeast(40f).dp
+        val cellWidth = ((dims.panelWidth - 24f) / 2f).coerceAtLeast(28f).dp
+        val cellHeight = (dims.panelHeight - 40f).coerceAtLeast(40f).dp
         val fontSize = dims.fontSize.sp
+        val panelSpacing = (maxWidth.value * 0.02f).coerceIn(4f, 14f).dp
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy((maxWidth.value * 0.02f).coerceIn(6f, 18f).dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp)
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.padding(horizontal = 4.dp)
         ) {
             ScoreboardPanel(
                 label = "HRS",
@@ -103,6 +104,8 @@ fun ThreeBoxTimerTheme(
                 countUp = isStopwatch
             )
 
+            Spacer(modifier = Modifier.width(panelSpacing))
+
             ScoreboardPanel(
                 label = "MIN",
                 tensDigit = digits.minutesTens,
@@ -115,6 +118,8 @@ fun ThreeBoxTimerTheme(
                 countUp = isStopwatch
             )
 
+            Spacer(modifier = Modifier.width(panelSpacing))
+
             ScoreboardPanel(
                 label = "SEC",
                 tensDigit = digits.secondsTens,
@@ -124,9 +129,22 @@ fun ThreeBoxTimerTheme(
                 cellWidth = cellWidth,
                 cellHeight = cellHeight,
                 fontSize = fontSize,
-                countUp = isStopwatch,
-                centisecondsText = centis
+                countUp = isStopwatch
             )
+
+            if (isStopwatch && centis != null) {
+                Spacer(modifier = Modifier.width(panelSpacing))
+                Text(
+                    text = ".$centis",
+                    fontSize = (fontSize.value * 0.40f).coerceIn(14f, 28f).sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = SubtleGray,
+                    modifier = Modifier.padding(bottom = (panelHeight.value * 0.20f).dp),
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
     }
 }
@@ -142,7 +160,6 @@ private fun ScoreboardPanel(
     cellHeight: Dp,
     fontSize: TextUnit,
     countUp: Boolean,
-    centisecondsText: String? = null,
     modifier: Modifier = Modifier
 ) {
     val panelShape = RoundedCornerShape((panelWidth.value * 0.12f).coerceIn(10f, 22f).dp)
@@ -159,7 +176,7 @@ private fun ScoreboardPanel(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -171,18 +188,6 @@ private fun ScoreboardPanel(
                 maxLines = 1,
                 softWrap = false
             )
-
-            if (centisecondsText != null) {
-                Text(
-                    text = ".$centisecondsText",
-                    fontSize = (panelWidth.value * 0.12f).coerceIn(10f, 15f).sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Light,
-                    color = SubtleGray,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
         }
 
         Row(
@@ -204,6 +209,8 @@ private fun ScoreboardPanel(
                 countUp = countUp
             )
         }
+
+        Spacer(modifier = Modifier.height(2.dp))
     }
 }
 
@@ -213,54 +220,61 @@ private fun ScoreboardDigitCell(
     cellWidth: Dp,
     cellHeight: Dp,
     fontSize: TextUnit,
-    countUp: Boolean,
-    modifier: Modifier = Modifier
+    countUp: Boolean
 ) {
-    val cellShape = RoundedCornerShape((cellWidth.value * 0.16f).coerceIn(6f, 14f).dp)
+    val cellShape = RoundedCornerShape(8.dp)
 
     Box(
-        modifier = modifier
+        modifier = Modifier
             .size(width = cellWidth, height = cellHeight)
             .clip(cellShape)
             .background(Color(0xFF141414))
-            .border(1.dp, BorderSubtle, cellShape),
+            .border(0.5.dp, Color(0xFF282828), cellShape),
         contentAlignment = Alignment.Center
     ) {
         AnimatedContent(
             targetState = digit,
             transitionSpec = {
-                val initialOffset = if (countUp) { height: Int -> height } else { height: Int -> -height }
-                val targetOffset = if (countUp) { height: Int -> -height } else { height: Int -> height }
-
-                (slideInVertically(
-                    animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-                    initialOffsetY = initialOffset
-                ) + fadeIn(animationSpec = tween(280))).togetherWith(
-                    slideOutVertically(
-                        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-                        targetOffsetY = targetOffset
-                    ) + fadeOut(animationSpec = tween(280))
-                )
+                if (countUp) {
+                    // Counting up: roll upward (enters from bottom, exits toward top)
+                    (slideInVertically(
+                        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                        initialOffsetY = { fullHeight -> fullHeight }
+                    ) + fadeIn()).togetherWith(
+                        slideOutVertically(
+                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                            targetOffsetY = { fullHeight -> -fullHeight }
+                        ) + fadeOut()
+                    )
+                } else {
+                    // Counting down: roll downward (enters from top, exits toward bottom)
+                    (slideInVertically(
+                        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                        initialOffsetY = { fullHeight -> -fullHeight }
+                    ) + fadeIn()).togetherWith(
+                        slideOutVertically(
+                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                            targetOffsetY = { fullHeight -> fullHeight }
+                        ) + fadeOut()
+                    )
+                }
             },
-            label = "ScoreboardRollAnimation"
-        ) { targetDigit ->
+            label = "DigitRoll"
+        ) { currentDigit ->
             Text(
-                text = targetDigit.toString(),
+                text = currentDigit.toString(),
                 fontSize = fontSize,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Light,
-                color = PureWhite,
-                maxLines = 1,
-                softWrap = false
+                color = PureWhite
             )
         }
 
+        // Mechanical scoreboard center split groove
         HorizontalDivider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Center),
-            thickness = 0.5.dp,
-            color = Color(0x33000000)
+            modifier = Modifier.fillMaxWidth(),
+            thickness = 1.dp,
+            color = Color(0xFF0A0A0A)
         )
     }
 }
@@ -271,7 +285,7 @@ private fun ThreeBoxStopwatchPortraitPreview() {
     ValueTimerTheme {
         ThreeBoxTimerTheme(
             isStopwatch = true,
-            stopwatchElapsedMillis = 62450L,
+            stopwatchElapsedMillis = 145230L,
             stopwatchStatus = StopwatchStatus.Running
         )
     }
@@ -283,7 +297,7 @@ private fun ThreeBoxStopwatchLandscapePreview() {
     ValueTimerTheme {
         ThreeBoxTimerTheme(
             isStopwatch = true,
-            stopwatchElapsedMillis = 3682950L,
+            stopwatchElapsedMillis = 4125890L,
             stopwatchStatus = StopwatchStatus.Running
         )
     }

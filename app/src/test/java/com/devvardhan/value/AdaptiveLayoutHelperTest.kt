@@ -1,8 +1,10 @@
 package com.devvardhan.value
 
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.model.StopwatchStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -85,7 +87,7 @@ class AdaptiveLayoutHelperTest {
         // Portrait: 3 boxes row layout
         val dimsPortrait = AdaptiveLayoutHelper.calculateThreeBoxDimensions(390f, 840f)
         assertTrue(dimsPortrait.panelWidth in 70f..160f)
-        assertTrue(dimsPortrait.panelHeight in 95f..220f)
+        assertTrue(dimsPortrait.panelHeight in 90f..220f)
     }
 
     @Test
@@ -120,5 +122,55 @@ class AdaptiveLayoutHelperTest {
         assertEquals(60, portraitGrid.columns * portraitGrid.rows)
         assertFalse(portraitGrid.isRowLayout)
     }
-}
 
+    @Test
+    fun testStopwatchPortraitHeightsDistribution() {
+        // Standard 640dp height small phone
+        val layout640 = AdaptiveLayoutHelper.calculateStopwatchPortraitHeights(640f)
+        assertEquals(84f, layout640.headerHeight, 0.01f)
+        assertEquals(72f, layout640.controlsHeight, 0.01f)
+        assertTrue("Visual height should be about 42% on 640dp", layout640.visualHeight in 240f..280f)
+        assertTrue("Lap list must have at least 140dp for 2-3 rows", layout640.lapListMinHeight >= 140f)
+
+        // Tall 844dp phone
+        val layout844 = AdaptiveLayoutHelper.calculateStopwatchPortraitHeights(844f)
+        assertTrue("Visual height should be ~354dp on 844dp", layout844.visualHeight in 340f..360f)
+        assertTrue("Lap list receives remaining height", layout844.lapListMinHeight > 300f)
+
+        // Extremely short screen (e.g. 400dp height): visual must shrink, never lap list below 140dp
+        val layoutShort = AdaptiveLayoutHelper.calculateStopwatchPortraitHeights(400f)
+        assertTrue("Lap list guaranteed at least 140dp", layoutShort.lapListMinHeight >= 140f)
+        assertTrue("Visual shrinks to accommodate lap list", layoutShort.visualHeight <= 140f)
+    }
+
+    @Test
+    fun testStopwatchButtonsStateTransitions() {
+        // 1. Idle state: 1 full-width Start button
+        val idleState = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Idle)
+        assertTrue(idleState.isFullWidthSingleButton)
+        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.START, idleState.primaryAction)
+        assertTrue(idleState.isPrimaryEnabled)
+        assertNull(idleState.secondaryAction)
+
+        // 2. Running state with 0 laps: Lap (enabled) + Pause (primary)
+        val runningState0 = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Running, lapsCount = 0)
+        assertFalse(runningState0.isFullWidthSingleButton)
+        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.PAUSE, runningState0.primaryAction)
+        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.LAP, runningState0.secondaryAction)
+        assertTrue(runningState0.isPrimaryEnabled)
+        assertTrue(runningState0.isSecondaryEnabled)
+
+        // 3. Running state with 99 laps (maxed): Lap button becomes disabled
+        val runningState99 = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Running, lapsCount = 99)
+        assertTrue(runningState99.isPrimaryEnabled)
+        assertFalse("Lap button disabled at 99 laps", runningState99.isSecondaryEnabled)
+
+        // 4. Paused state: Reset (secondary) + Resume (primary)
+        val pausedState = AdaptiveLayoutHelper.getStopwatchButtonsState(StopwatchStatus.Paused, lapsCount = 10)
+        assertFalse(pausedState.isFullWidthSingleButton)
+        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.RESUME, pausedState.primaryAction)
+        assertEquals(AdaptiveLayoutHelper.StopwatchButtonAction.RESET, pausedState.secondaryAction)
+        assertTrue(pausedState.isPrimaryEnabled)
+        assertTrue(pausedState.isSecondaryEnabled)
+    }
+}

@@ -1,5 +1,7 @@
 package com.devvardhan.value.core
 
+import com.devvardhan.value.model.StopwatchStatus
+
 /**
  * Pure calculation helpers for adaptive portrait, landscape, and tablet responsive layouts.
  * Decoupled from Compose runtime to allow comprehensive JVM unit testing.
@@ -41,9 +43,9 @@ object AdaptiveLayoutHelper {
         val ringGap = (diameter * 0.055f).coerceIn(10f, 26f)
         val outerRadius = (diameter / 2f) - strokeWidth
         val middleRadius = (outerRadius - ringGap).coerceAtLeast(10f)
-        val innerRadius = (middleRadius - ringGap).coerceAtLeast(10f)
+        val innerRadius = (middleRadius - gapSafe(middleRadius, ringGap)).coerceAtLeast(10f)
         val innerDiameter = innerRadius * 2f
-        val maxFontSize = (innerDiameter * 0.22f).coerceIn(18f, 68f)
+        val maxFontSize = (innerDiameter * 0.20f).coerceIn(16f, 60f)
 
         return ConcentricRingsGeometry(
             diameter = diameter,
@@ -55,6 +57,10 @@ object AdaptiveLayoutHelper {
             innerDiameter = innerDiameter,
             maxFontSize = maxFontSize
         )
+    }
+
+    private fun gapSafe(radius: Float, gap: Float): Float {
+        return if (radius - gap < 10f) maxOf(0f, radius - 10f) else gap
     }
 
     data class HourglassDimensions(
@@ -99,9 +105,9 @@ object AdaptiveLayoutHelper {
             val fontSize = (panelHeight * 0.38f).coerceIn(26f, 72f)
             ThreeBoxDimensions(panelWidth = panelWidth, panelHeight = panelHeight, fontSize = fontSize)
         } else {
-            val panelWidth = ((availableWidth - 48f) / 3.15f).coerceIn(70f, 160f)
-            val panelHeight = (panelWidth * 1.35f).coerceIn(95f, 220f)
-            val fontSize = (panelHeight * 0.38f).coerceIn(24f, 56f)
+            val panelWidth = ((availableWidth - 40f) / 3.1f).coerceIn(72f, 160f)
+            val panelHeight = minOf(panelWidth * 1.30f, availableHeight * 0.88f).coerceIn(92f, 220f)
+            val fontSize = (panelHeight * 0.40f).coerceIn(24f, 60f)
             ThreeBoxDimensions(panelWidth = panelWidth, panelHeight = panelHeight, fontSize = fontSize)
         }
     }
@@ -199,5 +205,81 @@ object AdaptiveLayoutHelper {
             )
         }
     }
-}
 
+    data class StopwatchPortraitLayout(
+        val visualHeight: Float,
+        val lapListMinHeight: Float,
+        val controlsHeight: Float,
+        val headerHeight: Float
+    )
+
+    /**
+     * Calculates vertical height distribution for the Stopwatch screen in portrait mode.
+     * Guarantees the lap list receives at least 2-3 rows (minLapListHeight), shrinking the visual first if needed.
+     */
+    fun calculateStopwatchPortraitHeights(
+        totalHeight: Float,
+        headerHeight: Float = 84f,
+        controlsHeight: Float = 72f,
+        minLapListHeight: Float = 140f
+    ): StopwatchPortraitLayout {
+        val remainingForVisualAndLaps = (totalHeight - headerHeight - controlsHeight).coerceAtLeast(minLapListHeight + 120f)
+        val targetVisualHeight = totalHeight * 0.42f
+        val maxVisualHeight = (remainingForVisualAndLaps - minLapListHeight).coerceAtLeast(120f)
+        val actualVisualHeight = minOf(targetVisualHeight, maxVisualHeight).coerceIn(120f, 360f)
+        val remainingForLaps = (remainingForVisualAndLaps - actualVisualHeight).coerceAtLeast(minLapListHeight)
+
+        return StopwatchPortraitLayout(
+            visualHeight = actualVisualHeight,
+            lapListMinHeight = remainingForLaps,
+            controlsHeight = controlsHeight,
+            headerHeight = headerHeight
+        )
+    }
+
+    enum class StopwatchButtonAction { START, PAUSE, RESUME, LAP, RESET }
+
+    data class StopwatchButtonsState(
+        val primaryAction: StopwatchButtonAction,
+        val secondaryAction: StopwatchButtonAction?,
+        val isPrimaryEnabled: Boolean,
+        val isSecondaryEnabled: Boolean,
+        val isFullWidthSingleButton: Boolean
+    )
+
+    /**
+     * Resolves the button layout per stopwatch state.
+     * Idle: 1 full-width START button.
+     * Running: LAP (secondary) + PAUSE (primary).
+     * Paused: RESET (secondary) + RESUME (primary).
+     */
+    fun getStopwatchButtonsState(
+        status: StopwatchStatus,
+        lapsCount: Int = 0,
+        maxLaps: Int = 99
+    ): StopwatchButtonsState {
+        return when (status) {
+            StopwatchStatus.Idle -> StopwatchButtonsState(
+                primaryAction = StopwatchButtonAction.START,
+                secondaryAction = null,
+                isPrimaryEnabled = true,
+                isSecondaryEnabled = false,
+                isFullWidthSingleButton = true
+            )
+            StopwatchStatus.Running -> StopwatchButtonsState(
+                primaryAction = StopwatchButtonAction.PAUSE,
+                secondaryAction = StopwatchButtonAction.LAP,
+                isPrimaryEnabled = true,
+                isSecondaryEnabled = lapsCount < maxLaps,
+                isFullWidthSingleButton = false
+            )
+            StopwatchStatus.Paused -> StopwatchButtonsState(
+                primaryAction = StopwatchButtonAction.RESUME,
+                secondaryAction = StopwatchButtonAction.RESET,
+                isPrimaryEnabled = true,
+                isSecondaryEnabled = true,
+                isFullWidthSingleButton = false
+            )
+        }
+    }
+}

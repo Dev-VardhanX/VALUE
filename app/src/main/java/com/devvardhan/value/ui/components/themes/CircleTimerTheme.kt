@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +33,7 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 1: Circle.
  * Clean, minimal circular progress ring with centered monospaced countdown or stopwatch digits.
- * For Stopwatch: sweeps once per minute (60s cycle) with a leading edge dot.
+ * For Stopwatch: sweeps once per minute (60s cycle) with a leading edge dot and baseline-aligned centiseconds.
  */
 @Composable
 fun CircleTimerTheme(
@@ -74,7 +76,6 @@ fun CircleTimerTheme(
     ) {
         val diameter = (minOf(maxWidth, maxHeight) - 32.dp).coerceAtLeast(120.dp)
         val strokeWidth = (diameter.value * 0.014f).coerceIn(2.5f, 6.5f).dp
-        // If elapsed time passes 1 hour, font size slightly adjusts to fit H:MM:SS.cc without jumping
         val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
         val fontFactor = if (hasHours) 0.14f else 0.16f
         val fontSize = (diameter.value * fontFactor).coerceIn(22f, 80f).sp
@@ -89,16 +90,47 @@ fun CircleTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = formattedTime,
-                    fontSize = fontSize,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Light,
-                    color = PureWhite,
-                    letterSpacing = if (hasHours) 1.sp else 2.sp,
-                    maxLines = 1,
-                    softWrap = false
-                )
+                if (isStopwatch) {
+                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
+                    val centisStr = ".${TimeUtils.formatStopwatchCentiseconds(stopwatchElapsedMillis)}"
+
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = mainUnits,
+                            fontSize = fontSize,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Light,
+                            color = PureWhite,
+                            letterSpacing = if (hasHours) 1.sp else 2.sp,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = centisStr,
+                            fontSize = (fontSize.value * 0.40f).coerceIn(12f, 32f).sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Normal,
+                            color = SubtleGray,
+                            modifier = Modifier.padding(bottom = (fontSize.value * 0.08f).dp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else {
+                    Text(
+                        text = formattedTime,
+                        fontSize = fontSize,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Light,
+                        color = PureWhite,
+                        letterSpacing = if (hasHours) 1.sp else 2.sp,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
 
                 Spacer(modifier = Modifier.height((diameter.value * 0.025f).coerceIn(4f, 16f).dp))
 
@@ -123,7 +155,7 @@ private fun CircleStopwatchPortraitPreview() {
     ValueTimerTheme {
         CircleTimerTheme(
             isStopwatch = true,
-            stopwatchElapsedMillis = 74520L,
+            stopwatchElapsedMillis = 145230L,
             stopwatchStatus = StopwatchStatus.Running
         )
     }
@@ -135,19 +167,7 @@ private fun CircleStopwatchLandscapePreview() {
     ValueTimerTheme {
         CircleTimerTheme(
             isStopwatch = true,
-            stopwatchElapsedMillis = 3674520L,
-            stopwatchStatus = StopwatchStatus.Running
-        )
-    }
-}
-
-@Preview(name = "Circle Stopwatch Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
-@Composable
-private fun CircleStopwatchTabletPreview() {
-    ValueTimerTheme {
-        CircleTimerTheme(
-            isStopwatch = true,
-            stopwatchElapsedMillis = 123450L,
+            stopwatchElapsedMillis = 4125890L,
             stopwatchStatus = StopwatchStatus.Running
         )
     }

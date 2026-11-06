@@ -134,7 +134,7 @@ fun RunningTimerScreen(
                             isTimerRunning = status == TimerStatus.Running,
                             isStopwatchRunning = isStopwatchRunning,
                             onModeSelected = onModeSelected,
-                            modifier = Modifier.width(180.dp)
+                            modifier = Modifier.width(200.dp)
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
@@ -199,63 +199,60 @@ fun RunningTimerScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Header bar
-                Row(
+                // Row 1: Mode Switch centered (identical position to Stopwatch screen)
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(top = 4.dp, bottom = 2.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SubtleGray,
-                        letterSpacing = 4.sp
-                    )
-
                     ModeSwitch(
                         currentMode = currentMode,
                         isTimerRunning = status == TimerStatus.Running,
                         isStopwatchRunning = isStopwatchRunning,
                         onModeSelected = onModeSelected,
-                        modifier = Modifier.width(180.dp)
+                        modifier = Modifier.width(216.dp)
                     )
+                }
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // Row 2: Slim bar right-aligned above visual for Palette & Fullscreen
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { showThemeSheet = true },
+                        modifier = Modifier
+                            .size(42.dp)
+                            .border(1.dp, BorderSubtle, CircleShape)
+                            .semantics { contentDescription = "Choose theme" }
                     ) {
-                        IconButton(
-                            onClick = { showThemeSheet = true },
-                            modifier = Modifier
-                                .size(42.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Choose theme" }
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Palette,
-                                contentDescription = stringResource(R.string.action_change_theme),
-                                tint = PureWhite,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = AppIcons.Palette,
+                            contentDescription = stringResource(R.string.action_change_theme),
+                            tint = PureWhite,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
 
-                        IconButton(
-                            onClick = onFullscreenClick,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Enter fullscreen mode" }
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Fullscreen,
-                                contentDescription = stringResource(R.string.action_fullscreen),
-                                tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    IconButton(
+                        onClick = onFullscreenClick,
+                        modifier = Modifier
+                            .size(42.dp)
+                            .border(1.dp, BorderSubtle, CircleShape)
+                            .semantics { contentDescription = "Enter fullscreen mode" }
+                    ) {
+                        Icon(
+                            imageVector = AppIcons.Fullscreen,
+                            contentDescription = stringResource(R.string.action_fullscreen),
+                            tint = PureWhite,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 

@@ -36,7 +36,7 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 7: Dot Grid.
  * A matrix of 60 dots.
- * For Stopwatch: one more dot lights up each second, resets every minute, with minutes in digits.
+ * For Stopwatch: one more dot lights up each second, resets every minute, with minutes in digits and baseline-aligned centiseconds.
  */
 @Composable
 fun DotGridTimerTheme(
@@ -114,16 +114,47 @@ fun DotGridTimerTheme(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = formattedTime,
-                    fontSize = matrix.fontSize.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Light,
-                    color = PureWhite,
-                    letterSpacing = 2.sp,
-                    maxLines = 1,
-                    softWrap = false
-                )
+                if (isStopwatch) {
+                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
+                    val centisStr = ".${TimeUtils.formatStopwatchCentiseconds(stopwatchElapsedMillis)}"
+
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = mainUnits,
+                            fontSize = matrix.fontSize.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Light,
+                            color = PureWhite,
+                            letterSpacing = 1.5.sp,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = centisStr,
+                            fontSize = (matrix.fontSize * 0.40f).coerceIn(12f, 26f).sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Normal,
+                            color = SubtleGray,
+                            modifier = Modifier.padding(bottom = (matrix.fontSize * 0.08f).dp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else {
+                    Text(
+                        text = formattedTime,
+                        fontSize = matrix.fontSize.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Light,
+                        color = PureWhite,
+                        letterSpacing = 2.sp,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -172,7 +203,7 @@ private fun DotGridStopwatchPortraitPreview() {
     ValueTimerTheme {
         DotGridTimerTheme(
             isStopwatch = true,
-            stopwatchElapsedMillis = 35000L,
+            stopwatchElapsedMillis = 145230L,
             stopwatchStatus = StopwatchStatus.Running
         )
     }
@@ -184,7 +215,7 @@ private fun DotGridStopwatchLandscapePreview() {
     ValueTimerTheme {
         DotGridTimerTheme(
             isStopwatch = true,
-            stopwatchElapsedMillis = 95200L,
+            stopwatchElapsedMillis = 4125890L,
             stopwatchStatus = StopwatchStatus.Running
         )
     }

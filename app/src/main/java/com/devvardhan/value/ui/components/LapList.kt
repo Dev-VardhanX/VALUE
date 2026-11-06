@@ -41,14 +41,13 @@ import com.devvardhan.value.ui.theme.SubtleGray
 /**
  * Scrollable list of recorded laps, ordered newest-on-top.
  * When 3 or more laps exist, highlights fastest with white "BEST" and slowest with gray "WORST".
+ * When empty, displays a subtle "No laps yet" placeholder with headers preserved.
  */
 @Composable
 fun LapList(
     laps: List<LapItem>,
     modifier: Modifier = Modifier
 ) {
-    if (laps.isEmpty()) return
-
     val listState = rememberLazyListState()
 
     // Determine best and worst lap numbers once there are 3 or more laps
@@ -113,24 +112,42 @@ fun LapList(
 
         HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(
-                items = laps,
-                key = { it.lapNumber }
-            ) { lap ->
-                val isBest = lap.lapNumber == bestLapNumber
-                val isWorst = lap.lapNumber == worstLapNumber
-
-                LapRow(
-                    lap = lap,
-                    isBest = isBest,
-                    isWorst = isWorst
+        if (laps.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No laps yet",
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Normal,
+                    color = SubtleGray,
+                    letterSpacing = 1.sp
                 )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(
+                    items = laps,
+                    key = { it.lapNumber }
+                ) { lap ->
+                    val isBest = lap.lapNumber == bestLapNumber
+                    val isWorst = lap.lapNumber == worstLapNumber
 
-                HorizontalDivider(color = Color(0x1AFFFFFF), thickness = 0.5.dp)
+                    LapRow(
+                        lap = lap,
+                        isBest = isBest,
+                        isWorst = isWorst
+                    )
+
+                    HorizontalDivider(color = Color(0x1AFFFFFF), thickness = 0.5.dp)
+                }
             }
         }
     }
@@ -170,19 +187,19 @@ private fun LapRow(
 
             if (isBest) {
                 Spacer(modifier = Modifier.width(6.dp))
-                Badge(label = "BEST", isBest = true)
+                BestBadge()
             } else if (isWorst) {
                 Spacer(modifier = Modifier.width(6.dp))
-                Badge(label = "WORST", isBest = false)
+                WorstBadge()
             }
         }
 
         Text(
-            text = "+$lapSplitText",
+            text = lapSplitText,
             fontSize = 13.sp,
             fontFamily = FontFamily.Monospace,
-            fontWeight = if (isBest) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isBest) PureWhite else if (isWorst) SubtleGray else Color(0xFFDDDDDD)
+            fontWeight = FontWeight.Normal,
+            color = if (isBest) PureWhite else SubtleGray
         )
 
         Text(
@@ -190,29 +207,44 @@ private fun LapRow(
             fontSize = 13.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Normal,
-            color = SubtleGray
+            color = PureWhite
         )
     }
 }
 
 @Composable
-private fun Badge(label: String, isBest: Boolean) {
-    val bgColor = if (isBest) PureWhite else Color(0xFF262626)
-    val textColor = if (isBest) PureBlack else SubtleGray
-
+private fun BestBadge() {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(3.dp))
-            .background(bgColor)
+            .background(PureWhite)
             .padding(horizontal = 4.dp, vertical = 1.dp)
     ) {
         Text(
-            text = label,
+            text = "BEST",
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
-            color = textColor,
+            color = PureBlack,
             letterSpacing = 0.5.sp
         )
     }
 }
 
+@Composable
+private fun WorstBadge() {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(3.dp))
+            .background(Color(0xFF242424))
+            .border(0.5.dp, BorderSubtle, RoundedCornerShape(3.dp))
+            .padding(horizontal = 4.dp, vertical = 1.dp)
+    ) {
+        Text(
+            text = "WORST",
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            color = SubtleGray,
+            letterSpacing = 0.5.sp
+        )
+    }
+}

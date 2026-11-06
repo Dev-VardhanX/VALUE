@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,11 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
+import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.LapItem
 import com.devvardhan.value.model.StopwatchStatus
@@ -51,13 +49,14 @@ import com.devvardhan.value.ui.components.rememberStopwatchElapsedMillis
 import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
-import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 
 /**
  * Stopwatch Screen:
  * Displays real-time count-up visual themes, millisecond-accurate frame updates,
  * tactile Reset/Lap/Start/Pause controls, and recorded laps.
+ * Designed with dedicated 360dp phone ergonomics: uncrowded header, non-wrapping pill buttons,
+ * and a permanently visible lap list.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,8 +88,6 @@ fun StopwatchScreen(
     )
 
     val isRunning = status == StopwatchStatus.Running
-    val isPaused = status == StopwatchStatus.Paused
-    val isResetEnabled = isPaused || (status == StopwatchStatus.Idle && laps.isNotEmpty()) || (status == StopwatchStatus.Idle && accumulatedMillis > 0L)
     val isLapEnabled = isRunning && laps.size < 99
 
     BoxWithConstraints(
@@ -106,13 +103,13 @@ fun StopwatchScreen(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left pane: Stopwatch visual taking ~55-60% width
+                // Left pane: Stopwatch visual taking ~58% width
                 Box(
                     modifier = Modifier
-                        .weight(1.1f)
+                        .weight(1.3f)
                         .fillMaxHeight()
                         .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.Center
@@ -127,13 +124,13 @@ fun StopwatchScreen(
                 // Right pane: Mode switch, header buttons, action controls, and lap list
                 Column(
                     modifier = Modifier
-                        .weight(0.9f)
+                        .weight(1.0f)
                         .fillMaxHeight()
                         .padding(horizontal = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Top header row: Mode Switch + Palette + Fullscreen
+                    // Header row: Mode Switch + Palette + Fullscreen
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -144,7 +141,7 @@ fun StopwatchScreen(
                             isTimerRunning = isTimerRunning,
                             isStopwatchRunning = isRunning,
                             onModeSelected = onModeSelected,
-                            modifier = Modifier.width(180.dp)
+                            modifier = Modifier.width(200.dp)
                         )
 
                         Row(
@@ -183,135 +180,147 @@ fun StopwatchScreen(
                         }
                     }
 
-                    // Action buttons
-                    Row(
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Action buttons (clean 1 or 2 button states)
+                    when (status) {
+                        StopwatchStatus.Idle -> {
+                            PrimaryPillButton(
+                                text = stringResource(R.string.action_start),
+                                onClick = onStartClick,
+                                modifier = Modifier.fillMaxWidth(),
+                                height = 52.dp
+                            )
+                        }
+                        StopwatchStatus.Running -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SecondaryPillButton(
+                                    text = stringResource(R.string.action_lap),
+                                    onClick = onLapClick,
+                                    enabled = isLapEnabled,
+                                    modifier = Modifier.weight(1f),
+                                    height = 52.dp
+                                )
+                                PrimaryPillButton(
+                                    text = stringResource(R.string.action_pause),
+                                    onClick = onPauseClick,
+                                    modifier = Modifier.weight(1f),
+                                    height = 52.dp
+                                )
+                            }
+                        }
+                        StopwatchStatus.Paused -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SecondaryPillButton(
+                                    text = stringResource(R.string.action_reset),
+                                    onClick = onResetClick,
+                                    modifier = Modifier.weight(1f),
+                                    height = 52.dp
+                                )
+                                PrimaryPillButton(
+                                    text = stringResource(R.string.action_resume),
+                                    onClick = onResumeClick,
+                                    modifier = Modifier.weight(1f),
+                                    height = 52.dp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Lap List filling remainder
+                    LapList(
+                        laps = laps,
                         modifier = Modifier
+                            .weight(1f)
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        SecondaryPillButton(
-                            text = stringResource(R.string.action_reset),
-                            onClick = onResetClick,
-                            enabled = isResetEnabled,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        SecondaryPillButton(
-                            text = stringResource(R.string.action_lap),
-                            onClick = onLapClick,
-                            enabled = isLapEnabled,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        PrimaryPillButton(
-                            text = stringResource(
-                                when (status) {
-                                    StopwatchStatus.Running -> R.string.action_pause
-                                    StopwatchStatus.Paused -> R.string.action_resume
-                                    StopwatchStatus.Idle -> R.string.action_start
-                                }
-                            ),
-                            onClick = {
-                                when (status) {
-                                    StopwatchStatus.Running -> onPauseClick()
-                                    StopwatchStatus.Paused -> onResumeClick()
-                                    StopwatchStatus.Idle -> onStartClick()
-                                }
-                            },
-                            modifier = Modifier.weight(1.2f)
-                        )
-                    }
-
-                    // Lap List
-                    if (laps.isNotEmpty()) {
-                        LapList(
-                            laps = laps,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
+                    )
                 }
             }
         } else {
-            // Portrait layout
+            // Portrait layout: Header -> Slim Actions -> Visual (42%) -> Controls -> Lap list (remaining)
+            val heights = remember(maxHeight.value) {
+                AdaptiveLayoutHelper.calculateStopwatchPortraitHeights(maxHeight.value)
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header bar
-                Row(
+                // Row 1: Mode Switch centered
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(top = 4.dp, bottom = 2.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SubtleGray,
-                        letterSpacing = 4.sp
-                    )
-
                     ModeSwitch(
                         currentMode = currentMode,
                         isTimerRunning = isTimerRunning,
                         isStopwatchRunning = isRunning,
                         onModeSelected = onModeSelected,
-                        modifier = Modifier.width(180.dp)
+                        modifier = Modifier.width(216.dp)
                     )
+                }
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // Row 2: Slim bar right-aligned above visual for Palette & Fullscreen
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { showThemeSheet = true },
+                        modifier = Modifier
+                            .size(42.dp)
+                            .border(1.dp, BorderSubtle, CircleShape)
+                            .semantics { contentDescription = "Choose theme" }
                     ) {
-                        IconButton(
-                            onClick = { showThemeSheet = true },
-                            modifier = Modifier
-                                .size(42.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Choose theme" }
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Palette,
-                                contentDescription = stringResource(R.string.action_change_theme),
-                                tint = PureWhite,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = AppIcons.Palette,
+                            contentDescription = stringResource(R.string.action_change_theme),
+                            tint = PureWhite,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
 
-                        IconButton(
-                            onClick = onFullscreenClick,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Enter fullscreen mode" }
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Fullscreen,
-                                contentDescription = stringResource(R.string.action_fullscreen),
-                                tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    IconButton(
+                        onClick = onFullscreenClick,
+                        modifier = Modifier
+                            .size(42.dp)
+                            .border(1.dp, BorderSubtle, CircleShape)
+                            .semantics { contentDescription = "Enter fullscreen mode" }
+                    ) {
+                        Icon(
+                            imageVector = AppIcons.Fullscreen,
+                            contentDescription = stringResource(R.string.action_fullscreen),
+                            tint = PureWhite,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
-                // Middle: Visual container (~55% of height when no laps, adaptive when laps exist)
+                // Visual container (~40-42% of height, never floating in empty space)
                 Box(
                     modifier = Modifier
-                        .weight(if (laps.isNotEmpty()) 1.2f else 2f)
+                        .height(heights.visualHeight.dp)
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     StopwatchVisual(
@@ -321,57 +330,73 @@ fun StopwatchScreen(
                     )
                 }
 
-                // Action controls
-                Row(
+                // Action controls: Clean states (1 big start button in Idle, 2 equal buttons in Running/Paused)
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    SecondaryPillButton(
-                        text = stringResource(R.string.action_reset),
-                        onClick = onResetClick,
-                        enabled = isResetEnabled,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    SecondaryPillButton(
-                        text = stringResource(R.string.action_lap),
-                        onClick = onLapClick,
-                        enabled = isLapEnabled,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    PrimaryPillButton(
-                        text = stringResource(
-                            when (status) {
-                                StopwatchStatus.Running -> R.string.action_pause
-                                StopwatchStatus.Paused -> R.string.action_resume
-                                StopwatchStatus.Idle -> R.string.action_start
+                    when (status) {
+                        StopwatchStatus.Idle -> {
+                            PrimaryPillButton(
+                                text = stringResource(R.string.action_start),
+                                onClick = onStartClick,
+                                modifier = Modifier.fillMaxWidth(),
+                                height = 56.dp
+                            )
+                        }
+                        StopwatchStatus.Running -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SecondaryPillButton(
+                                    text = stringResource(R.string.action_lap),
+                                    onClick = onLapClick,
+                                    enabled = isLapEnabled,
+                                    modifier = Modifier.weight(1f),
+                                    height = 56.dp
+                                )
+                                PrimaryPillButton(
+                                    text = stringResource(R.string.action_pause),
+                                    onClick = onPauseClick,
+                                    modifier = Modifier.weight(1f),
+                                    height = 56.dp
+                                )
                             }
-                        ),
-                        onClick = {
-                            when (status) {
-                                StopwatchStatus.Running -> onPauseClick()
-                                StopwatchStatus.Paused -> onResumeClick()
-                                StopwatchStatus.Idle -> onStartClick()
+                        }
+                        StopwatchStatus.Paused -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SecondaryPillButton(
+                                    text = stringResource(R.string.action_reset),
+                                    onClick = onResetClick,
+                                    modifier = Modifier.weight(1f),
+                                    height = 56.dp
+                                )
+                                PrimaryPillButton(
+                                    text = stringResource(R.string.action_resume),
+                                    onClick = onResumeClick,
+                                    modifier = Modifier.weight(1f),
+                                    height = 56.dp
+                                )
                             }
-                        },
-                        modifier = Modifier.weight(1.3f)
-                    )
+                        }
+                    }
                 }
 
-                // Bottom: Lap list taking remaining space
-                if (laps.isNotEmpty()) {
-                    LapList(
-                        laps = laps,
-                        modifier = Modifier
-                            .weight(1.1f)
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    )
-                }
+                // Lap List: Always visible with at least 2-3 rows, filling remaining height down to bottom
+                LapList(
+                    laps = laps,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
             }
         }
 
@@ -386,18 +411,123 @@ fun StopwatchScreen(
     }
 }
 
-@Preview(name = "Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+// -------------------------------------------------------------------------------------------------
+// PREVIEWS
+// -------------------------------------------------------------------------------------------------
+
+private val sampleLaps5 = listOf(
+    LapItem(5, 12450L, 78900L),
+    LapItem(4, 18200L, 66450L),
+    LapItem(3, 9100L, 48250L),
+    LapItem(2, 21450L, 39150L),
+    LapItem(1, 17700L, 17700L)
+)
+
+@Preview(name = "1. Portrait 360x640 (0 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
 @Composable
-private fun StopwatchScreenPortraitPreview() {
+private fun PreviewStopwatch360x640ZeroLaps() {
+    ValueTimerTheme {
+        StopwatchScreen(
+            status = StopwatchStatus.Idle,
+            startTime = 0L,
+            accumulatedMillis = 0L,
+            laps = emptyList(),
+            theme = TimerTheme.THREE_BOX,
+            currentMode = AppMode.STOPWATCH,
+            isTimerRunning = false,
+            onModeSelected = {},
+            onThemeChange = {},
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onFullscreenClick = {}
+        )
+    }
+}
+
+@Preview(name = "2. Portrait 360x640 (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
+@Composable
+private fun PreviewStopwatch360x640FiveLaps() {
     ValueTimerTheme {
         StopwatchScreen(
             status = StopwatchStatus.Running,
-            startTime = System.currentTimeMillis() - 45000L,
-            accumulatedMillis = 45000L,
-            laps = listOf(
-                LapItem(2, 21450L, 45000L),
-                LapItem(1, 23550L, 23550L)
-            ),
+            startTime = System.currentTimeMillis() - 78900L,
+            accumulatedMillis = 78900L,
+            laps = sampleLaps5,
+            theme = TimerTheme.THREE_BOX,
+            currentMode = AppMode.STOPWATCH,
+            isTimerRunning = false,
+            onModeSelected = {},
+            onThemeChange = {},
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onFullscreenClick = {}
+        )
+    }
+}
+
+@Preview(name = "3. Portrait 412x915 Font 1.3 (0 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 412, heightDp = 915, fontScale = 1.3f)
+@Composable
+private fun PreviewStopwatch412x915Font13ZeroLaps() {
+    ValueTimerTheme {
+        StopwatchScreen(
+            status = StopwatchStatus.Idle,
+            startTime = 0L,
+            accumulatedMillis = 0L,
+            laps = emptyList(),
+            theme = TimerTheme.CONCENTRIC_RINGS,
+            currentMode = AppMode.STOPWATCH,
+            isTimerRunning = true,
+            onModeSelected = {},
+            onThemeChange = {},
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onFullscreenClick = {}
+        )
+    }
+}
+
+@Preview(name = "4. Portrait 412x915 Font 1.3 (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 412, heightDp = 915, fontScale = 1.3f)
+@Composable
+private fun PreviewStopwatch412x915Font13FiveLaps() {
+    ValueTimerTheme {
+        StopwatchScreen(
+            status = StopwatchStatus.Paused,
+            startTime = 0L,
+            accumulatedMillis = 78900L,
+            laps = sampleLaps5,
+            theme = TimerTheme.FLIP_CLOCK,
+            currentMode = AppMode.STOPWATCH,
+            isTimerRunning = false,
+            onModeSelected = {},
+            onThemeChange = {},
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onFullscreenClick = {}
+        )
+    }
+}
+
+@Preview(name = "5. Landscape (0 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun PreviewStopwatchLandscapeZeroLaps() {
+    ValueTimerTheme {
+        StopwatchScreen(
+            status = StopwatchStatus.Idle,
+            startTime = 0L,
+            accumulatedMillis = 0L,
+            laps = emptyList(),
             theme = TimerTheme.CIRCLE,
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
@@ -413,19 +543,16 @@ private fun StopwatchScreenPortraitPreview() {
     }
 }
 
-@Preview(name = "Stopwatch Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "6. Landscape (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
 @Composable
-private fun StopwatchScreenLandscapePreview() {
+private fun PreviewStopwatchLandscapeFiveLaps() {
     ValueTimerTheme {
         StopwatchScreen(
             status = StopwatchStatus.Running,
-            startTime = System.currentTimeMillis() - 45000L,
-            accumulatedMillis = 45000L,
-            laps = listOf(
-                LapItem(2, 21450L, 45000L),
-                LapItem(1, 23550L, 23550L)
-            ),
-            theme = TimerTheme.CIRCLE,
+            startTime = System.currentTimeMillis() - 78900L,
+            accumulatedMillis = 78900L,
+            laps = sampleLaps5,
+            theme = TimerTheme.DOT_GRID,
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
@@ -440,3 +567,50 @@ private fun StopwatchScreenLandscapePreview() {
     }
 }
 
+@Preview(name = "7. Tablet (0 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1200, heightDp = 800)
+@Composable
+private fun PreviewStopwatchTabletZeroLaps() {
+    ValueTimerTheme {
+        StopwatchScreen(
+            status = StopwatchStatus.Idle,
+            startTime = 0L,
+            accumulatedMillis = 0L,
+            laps = emptyList(),
+            theme = TimerTheme.THREE_BOX,
+            currentMode = AppMode.STOPWATCH,
+            isTimerRunning = false,
+            onModeSelected = {},
+            onThemeChange = {},
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onFullscreenClick = {}
+        )
+    }
+}
+
+@Preview(name = "8. Tablet (5 laps)", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1200, heightDp = 800)
+@Composable
+private fun PreviewStopwatchTabletFiveLaps() {
+    ValueTimerTheme {
+        StopwatchScreen(
+            status = StopwatchStatus.Running,
+            startTime = System.currentTimeMillis() - 78900L,
+            accumulatedMillis = 78900L,
+            laps = sampleLaps5,
+            theme = TimerTheme.CIRCLE,
+            currentMode = AppMode.STOPWATCH,
+            isTimerRunning = false,
+            onModeSelected = {},
+            onThemeChange = {},
+            onStartClick = {},
+            onPauseClick = {},
+            onResumeClick = {},
+            onLapClick = {},
+            onResetClick = {},
+            onFullscreenClick = {}
+        )
+    }
+}

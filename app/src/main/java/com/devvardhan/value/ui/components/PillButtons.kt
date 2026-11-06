@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.DarkGray
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
@@ -22,6 +23,7 @@ import com.devvardhan.value.ui.theme.SubtleGray
 
 /**
  * Primary action button: Solid white pill with black text.
+ * Content padding is optimized to prevent text wrapping on narrow devices.
  */
 @Composable
 fun PrimaryPillButton(
@@ -39,22 +41,25 @@ fun PrimaryPillButton(
             containerColor = PureWhite,
             contentColor = PureBlack,
             disabledContainerColor = DarkGray,
-            disabledContentColor = SubtleGray
+            disabledContentColor = SubtleGray.copy(alpha = 0.40f)
         ),
-        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
         modifier = modifier.height(height)
     ) {
         Text(
             text = text,
-            fontSize = 17.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            letterSpacing = 0.5.sp
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
 
 /**
- * Secondary action button: Outlined white pill with white text on transparent background.
+ * Secondary action button: Outlined pill with white text on transparent background.
+ * Content padding is optimized to prevent text wrapping on narrow devices.
  */
 @Composable
 fun SecondaryPillButton(
@@ -68,21 +73,22 @@ fun SecondaryPillButton(
         onClick = onClick,
         enabled = enabled,
         shape = CircleShape,
-        border = BorderStroke(1.5.dp, if (enabled) PureWhite else DarkGray),
+        border = BorderStroke(1.dp, if (enabled) PureWhite else BorderSubtle),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = Color.Transparent,
             contentColor = PureWhite,
-            disabledContentColor = SubtleGray
+            disabledContentColor = SubtleGray.copy(alpha = 0.40f)
         ),
-        contentPadding = PaddingValues(horizontal = 28.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
         modifier = modifier.height(height)
     ) {
         Text(
             text = text,
-            fontSize = 17.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Normal,
-            letterSpacing = 0.5.sp
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
-

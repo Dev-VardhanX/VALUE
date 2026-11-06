@@ -106,7 +106,7 @@ fun SetTimerScreen(
                         isTimerRunning = false,
                         isStopwatchRunning = isStopwatchRunning,
                         onModeSelected = onModeSelected,
-                        modifier = Modifier.width(180.dp)
+                        modifier = Modifier.width(200.dp)
                     )
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -142,27 +142,18 @@ fun SetTimerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(top = 4.dp, bottom = 4.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SubtleGray,
-                        letterSpacing = 4.sp
-                    )
-
                     ModeSwitch(
                         currentMode = currentMode,
                         isTimerRunning = false,
                         isStopwatchRunning = isStopwatchRunning,
                         onModeSelected = onModeSelected,
-                        modifier = Modifier.width(180.dp)
+                        modifier = Modifier.width(216.dp)
                     )
                 }
 
