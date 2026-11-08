@@ -219,17 +219,29 @@ object StopwatchEngine {
     }
 
     /**
-     * Records a lap while the stopwatch is running.
+     * Records a lap while the stopwatch is running or paused.
+     * When paused, allows recording a lap once for the current accumulated time;
+     * subsequent taps while still paused at the same time are ignored.
      * Up to 99 laps. Newest lap placed at index 0.
      */
     fun lap(): LapItem? {
         val current = _snapshot.value
-        if (current.status != StopwatchStatus.Running) return null
+        if (current.status == StopwatchStatus.Idle) return null
         if (current.laps.size >= MAX_LAPS) return null
 
         val now = timeProvider()
-        val totalElapsed = current.accumulatedMillis + maxOf(0L, now - current.startTime)
+        val totalElapsed = if (current.status == StopwatchStatus.Running) {
+            current.accumulatedMillis + maxOf(0L, now - current.startTime)
+        } else {
+            current.accumulatedMillis
+        }
+
+        if (totalElapsed <= 0L) return null
+
         val lastLapTotal = current.laps.firstOrNull()?.totalTimeMillis ?: 0L
+        if (current.status == StopwatchStatus.Paused && totalElapsed <= lastLapTotal) {
+            return null
+        }
         val lapSplit = maxOf(0L, totalElapsed - lastLapTotal)
 
         val newLap = LapItem(

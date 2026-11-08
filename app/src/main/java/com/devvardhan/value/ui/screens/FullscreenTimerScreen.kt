@@ -48,6 +48,7 @@ import com.devvardhan.value.ui.components.rememberCountdownRemainingMillis
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import com.devvardhan.value.ui.util.debugTestTag
 import kotlinx.coroutines.delay
 
 /**
@@ -176,6 +177,7 @@ fun FullscreenTimerScreen(
                     .size(48.dp)
                     .background(Color(0x33FFFFFF), CircleShape)
                     .semantics { contentDescription = "Exit fullscreen mode" }
+                    .debugTestTag("btn_exit_fullscreen")
             ) {
                 Icon(
                     imageVector = AppIcons.FullscreenExit,

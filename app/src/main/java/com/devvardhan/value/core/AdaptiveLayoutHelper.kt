@@ -78,14 +78,21 @@ object AdaptiveLayoutHelper {
         layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
     ): HourglassDimensions {
         val landscape = when (layoutMode) {
-            ThemeLayoutMode.AUTO -> isLandscape(availableWidth, availableHeight, 1.2f)
+            ThemeLayoutMode.AUTO -> isLandscape(availableWidth, availableHeight, 1.15f)
             ThemeLayoutMode.PORTRAIT -> false
             ThemeLayoutMode.LANDSCAPE -> true
         }
         return if (landscape) {
-            val h = (availableHeight * 0.82f).coerceAtLeast(100f)
-            val w = h * 0.62f
-            val fontSize = (availableHeight * 0.22f).coerceIn(20f, 72f)
+            // Keep hourglass width bounded so it never crowds out the time digits
+            val maxHourglassWidth = availableWidth * 0.36f
+            val h = minOf(availableHeight * 0.80f, maxHourglassWidth / 0.60f).coerceAtLeast(80f)
+            val w = h * 0.60f
+            // Remaining width for the digits text
+            val remainingWidthForDigits = (availableWidth - w - 48f).coerceAtLeast(60f)
+            // 8 monospace characters with letter spacing require ~5.2 * fontSize
+            val maxFontFromWidth = ((remainingWidthForDigits - 14f) / 5.2f).coerceAtLeast(14f)
+            val maxFontFromHeight = availableHeight * 0.20f
+            val fontSize = minOf(maxFontFromWidth, maxFontFromHeight).coerceIn(16f, 60f)
             HourglassDimensions(width = w, height = h, fontSize = fontSize, isRowLayout = true)
         } else {
             val h = (availableHeight * 0.48f).coerceIn(80f, 380f)
@@ -196,13 +203,17 @@ object AdaptiveLayoutHelper {
         return if (landscape) {
             val columns = 12
             val rows = 5 // 12 * 5 = 60 dots
-            val gridWidth = (availableWidth * 0.52f).coerceAtLeast(140f)
-            val gridHeight = minOf(availableHeight * 0.75f, gridWidth * 0.55f).coerceAtLeast(80f)
-            val fontSize = (availableHeight * 0.20f).coerceIn(18f, 68f)
+            // In rotated/landscape view: display grid on top, time below
+            val maxGridHeight = (availableHeight * 0.44f).coerceIn(70f, 220f)
+            val maxGridWidth = (availableWidth * 0.76f).coerceIn(160f, 600f)
+            // Uniform square cell spacing: ratio 11 gaps : 4 gaps = 2.75
+            val gridWidth = minOf(maxGridWidth, maxGridHeight * 2.75f).coerceAtLeast(140f)
+            val gridHeight = (gridWidth / 2.75f).coerceIn(60f, maxGridHeight)
+            val fontSize = minOf(availableWidth * 0.09f, availableHeight * 0.14f).coerceIn(20f, 48f)
             DotGridMatrix(
                 columns = columns,
                 rows = rows,
-                isRowLayout = true,
+                isRowLayout = false,
                 gridWidth = gridWidth,
                 gridHeight = gridHeight,
                 fontSize = fontSize
@@ -266,7 +277,7 @@ object AdaptiveLayoutHelper {
 
     /**
      * Resolves the stopwatch control row states:
-     * - LEFT: Flag/Lap button (enabled ONLY while running, capped at maxLaps)
+     * - LEFT: Flag/Lap button (enabled while running, or while paused if lap not yet recorded for current time, capped at maxLaps)
      * - CENTER: Main pill button (Start when Idle, Pause when Running, Resume when Paused; always enabled)
      * - RIGHT: Reset button (enabled while Running, Paused, or Idle with laps/elapsed; disabled only when Idle with 0 laps and 0 elapsed)
      */
@@ -274,14 +285,19 @@ object AdaptiveLayoutHelper {
         status: StopwatchStatus,
         lapsCount: Int = 0,
         maxLaps: Int = 99,
-        elapsedMillis: Long = 0L
+        elapsedMillis: Long = 0L,
+        lastLapTotalMillis: Long = 0L
     ): StopwatchControlRowState {
         val mainAction = when (status) {
             StopwatchStatus.Idle -> StopwatchControlRowState.MainAction.START
             StopwatchStatus.Running -> StopwatchControlRowState.MainAction.PAUSE
             StopwatchStatus.Paused -> StopwatchControlRowState.MainAction.RESUME
         }
-        val isLapEnabled = (status == StopwatchStatus.Running) && (lapsCount < maxLaps)
+        val isLapEnabled = when (status) {
+            StopwatchStatus.Running -> lapsCount < maxLaps
+            StopwatchStatus.Paused -> lapsCount < maxLaps && elapsedMillis > 0L && elapsedMillis > lastLapTotalMillis
+            StopwatchStatus.Idle -> false
+        }
         val isResetEnabled = (status == StopwatchStatus.Running) ||
                              (status == StopwatchStatus.Paused) ||
                              (status == StopwatchStatus.Idle && (lapsCount > 0 || elapsedMillis > 0L))

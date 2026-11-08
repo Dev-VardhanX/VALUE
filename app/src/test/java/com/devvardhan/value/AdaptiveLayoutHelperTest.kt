@@ -129,12 +129,12 @@ class AdaptiveLayoutHelperTest {
 
     @Test
     fun testDotGridMatrix60DotsInvariant() {
-        // Landscape (12 x 5 = 60 dots)
+        // Landscape (12 x 5 = 60 dots, column layout with time below grid)
         val landscapeGrid = AdaptiveLayoutHelper.calculateDotGridMatrix(840f, 390f)
         assertEquals(60, landscapeGrid.columns * landscapeGrid.rows)
-        assertTrue(landscapeGrid.isRowLayout)
+        assertFalse(landscapeGrid.isRowLayout)
 
-        // Portrait (10 x 6 = 60 dots)
+        // Portrait (10 x 6 = 60 dots, column layout with time below grid)
         val portraitGrid = AdaptiveLayoutHelper.calculateDotGridMatrix(390f, 840f)
         assertEquals(60, portraitGrid.columns * portraitGrid.rows)
         assertFalse(portraitGrid.isRowLayout)
@@ -204,12 +204,30 @@ class AdaptiveLayoutHelperTest {
         assertFalse("Lap must be disabled when Paused", paused0.isLapEnabled)
         assertTrue("Reset must be enabled when Paused", paused0.isResetEnabled)
 
-        // 7. Paused state with laps: Lap=disabled, Main=Resume (enabled), Reset=enabled
+        // 7. Paused state with laps: Lap=disabled when elapsed == 0, Main=Resume (enabled), Reset=enabled
         val pausedWithLaps = AdaptiveLayoutHelper.getStopwatchControlRowState(StopwatchStatus.Paused, lapsCount = 5)
         assertEquals(AdaptiveLayoutHelper.StopwatchControlRowState.MainAction.RESUME, pausedWithLaps.mainAction)
         assertTrue(pausedWithLaps.isMainEnabled)
-        assertFalse("Lap must be disabled when Paused", pausedWithLaps.isLapEnabled)
+        assertFalse("Lap must be disabled when Paused without elapsed", pausedWithLaps.isLapEnabled)
         assertTrue("Reset must be enabled when Paused", pausedWithLaps.isResetEnabled)
+
+        // 8. Paused state with elapsed > lastLap: Lap=enabled (can lap once while paused)
+        val pausedCanLap = AdaptiveLayoutHelper.getStopwatchControlRowState(
+            StopwatchStatus.Paused,
+            lapsCount = 1,
+            elapsedMillis = 5000L,
+            lastLapTotalMillis = 3000L
+        )
+        assertTrue("Lap must be enabled when Paused and elapsed > lastLapTotal", pausedCanLap.isLapEnabled)
+
+        // 9. Paused state with elapsed == lastLap: Lap=disabled (cannot lap twice at same time)
+        val pausedAlreadyLapped = AdaptiveLayoutHelper.getStopwatchControlRowState(
+            StopwatchStatus.Paused,
+            lapsCount = 2,
+            elapsedMillis = 5000L,
+            lastLapTotalMillis = 5000L
+        )
+        assertFalse("Lap must be disabled when Paused if lap was already recorded for this time", pausedAlreadyLapped.isLapEnabled)
     }
 
     @Test

@@ -39,6 +39,7 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
+import com.devvardhan.value.ui.util.debugTestTag
 
 /**
  * Minimal black-and-white segmented pill switch between Timer and Stopwatch.
@@ -71,7 +72,9 @@ fun ModeSwitch(
                 isSelected = currentMode == AppMode.TIMER,
                 showActiveDot = (currentMode != AppMode.TIMER) && isTimerRunning,
                 onClick = { onModeSelected(AppMode.TIMER) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .debugTestTag("mode_timer")
             )
 
             ModeSegment(
@@ -79,7 +82,9 @@ fun ModeSwitch(
                 isSelected = currentMode == AppMode.STOPWATCH,
                 showActiveDot = (currentMode != AppMode.STOPWATCH) && isStopwatchRunning,
                 onClick = { onModeSelected(AppMode.STOPWATCH) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .debugTestTag("mode_stopwatch")
             )
         }
     }

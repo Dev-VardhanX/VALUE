@@ -32,6 +32,7 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import com.devvardhan.value.ui.util.debugTestTag
 
 /**
  * Unified Stopwatch Control Row:
@@ -55,7 +56,8 @@ fun StopwatchControlRow(
     modifier: Modifier = Modifier,
     height: Dp = 56.dp,
     latestSplitFormatted: String? = null,
-    elapsedMillis: Long = 0L
+    elapsedMillis: Long = 0L,
+    lastLapTotalMillis: Long = 0L
 ) {
     val haptic = LocalHapticFeedback.current
     val view = LocalView.current
@@ -63,7 +65,8 @@ fun StopwatchControlRow(
     val state = AdaptiveLayoutHelper.getStopwatchControlRowState(
         status = status,
         lapsCount = lapsCount,
-        elapsedMillis = elapsedMillis
+        elapsedMillis = elapsedMillis,
+        lastLapTotalMillis = lastLapTotalMillis
     )
 
     val (mainLabel, onMainClick) = when (status) {
@@ -95,7 +98,8 @@ fun StopwatchControlRow(
                 view.announceForAccessibility(announcement)
                 onLapClick()
             },
-            size = height
+            size = height,
+            modifier = Modifier.debugTestTag("btn_stopwatch_lap")
         )
 
         // CENTER: Main action pill button
@@ -103,7 +107,9 @@ fun StopwatchControlRow(
             text = mainLabel,
             onClick = onMainClick,
             enabled = state.isMainEnabled,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .debugTestTag("btn_stopwatch_main"),
             height = height
         )
 
@@ -117,7 +123,8 @@ fun StopwatchControlRow(
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 onResetClick()
             },
-            size = height
+            size = height,
+            modifier = Modifier.debugTestTag("btn_stopwatch_reset")
         )
     }
 }

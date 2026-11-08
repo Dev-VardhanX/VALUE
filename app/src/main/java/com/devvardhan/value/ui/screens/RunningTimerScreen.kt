@@ -46,6 +46,7 @@ import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import com.devvardhan.value.ui.util.debugTestTag
 
 /**
  * Screen 2: Running Timer screen.
@@ -141,6 +142,7 @@ fun RunningTimerScreen(
                                     .size(40.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Choose style gallery" }
+                                    .debugTestTag("btn_style")
                             ) {
                                 Icon(
                                     imageVector = AppIcons.Palette,
@@ -156,6 +158,7 @@ fun RunningTimerScreen(
                                     .size(40.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Enter fullscreen mode" }
+                                    .debugTestTag("btn_fullscreen")
                             ) {
                                 Icon(
                                     imageVector = AppIcons.Fullscreen,
@@ -183,14 +186,18 @@ fun RunningTimerScreen(
                         PrimaryPillButton(
                             text = stringResource(if (isPaused) R.string.action_resume else R.string.action_pause),
                             onClick = if (isPaused) onResumeClick else onPauseClick,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .debugTestTag(if (isPaused) "btn_resume_timer" else "btn_pause_timer"),
                             height = 52.dp
                         )
 
                         SecondaryPillButton(
                             text = stringResource(R.string.action_reset),
                             onClick = onResetClick,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .debugTestTag("btn_reset_timer"),
                             height = 52.dp
                         )
                     }
@@ -234,6 +241,7 @@ fun RunningTimerScreen(
                                 .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Choose style gallery" }
+                                .debugTestTag("btn_style")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Palette,
@@ -249,6 +257,7 @@ fun RunningTimerScreen(
                                 .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Enter fullscreen mode" }
+                                .debugTestTag("btn_fullscreen")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Fullscreen,
@@ -305,14 +314,18 @@ fun RunningTimerScreen(
                     SecondaryPillButton(
                         text = stringResource(R.string.action_reset),
                         onClick = onResetClick,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .debugTestTag("btn_reset_timer"),
                         height = 56.dp
                     )
 
                     PrimaryPillButton(
                         text = stringResource(if (isPaused) R.string.action_resume else R.string.action_pause),
                         onClick = if (isPaused) onResumeClick else onPauseClick,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .debugTestTag(if (isPaused) "btn_resume_timer" else "btn_pause_timer"),
                         height = 56.dp
                     )
                 }

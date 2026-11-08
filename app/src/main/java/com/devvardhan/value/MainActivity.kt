@@ -71,6 +71,7 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import com.devvardhan.value.ui.util.rootTestTagsAsResourceId
 import com.devvardhan.value.viewmodel.StopwatchViewModel
 import com.devvardhan.value.viewmodel.TimerViewModel
 import kotlinx.coroutines.flow.first
@@ -243,7 +244,8 @@ fun ValueApp(
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .background(PureBlack),
+            .background(PureBlack)
+            .rootTestTagsAsResourceId(),
         color = PureBlack
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -304,7 +306,8 @@ fun ValueApp(
                                 onResumeClick = { stopwatchViewModel.resume() },
                                 onLapClick = { stopwatchViewModel.lap() },
                                 onResetClick = { stopwatchViewModel.reset() },
-                                onExitFullscreen = { stopwatchViewModel.setFullscreen(false) }
+                                onExitFullscreen = { stopwatchViewModel.setFullscreen(false) },
+                                lastLapTotalMillis = stopwatchState.laps.firstOrNull()?.totalTimeMillis ?: 0L
                             )
                         } else {
                             StopwatchScreen(

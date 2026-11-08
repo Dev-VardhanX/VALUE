@@ -74,8 +74,15 @@ class StopwatchEngineTest {
             assertEquals(7000L, snapshot.accumulatedMillis)
             assertEquals(0L, snapshot.startTime)
 
-            // Calling lap while paused must return null
-            assertNull("Lap while paused should be null", StopwatchEngine.lap())
+            // Calling lap once while paused records a lap for the current accumulated time
+            val pausedLap = StopwatchEngine.lap()
+            assertNotNull("Lap once while paused should record a lap", pausedLap)
+            assertEquals(2, pausedLap?.lapNumber)
+            assertEquals(4000L, pausedLap?.lapTimeMillis)
+            assertEquals(7000L, pausedLap?.totalTimeMillis)
+
+            // Calling lap a second time while still paused at the same time must return null
+            assertNull("Lap again while paused at same timestamp should be null", StopwatchEngine.lap())
 
             // Advance fake time while paused - elapsed must not change
             fakeCurrentTime += 20_000L
@@ -92,13 +99,13 @@ class StopwatchEngineTest {
             fakeCurrentTime += 2000L
             assertEquals(9000L, snapshot.computeElapsedMillis(fakeCurrentTime))
 
-            // 5. Record Lap 2
-            val lap2 = StopwatchEngine.lap()
-            assertNotNull(lap2)
-            assertEquals(2, lap2?.lapNumber)
-            assertEquals(6000L, lap2?.lapTimeMillis) // 9000 - 3000
-            assertEquals(9000L, lap2?.totalTimeMillis)
-            assertEquals(2, StopwatchEngine.snapshot.value.laps.size)
+            // 5. Record Lap 3 after resume
+            val lap3 = StopwatchEngine.lap()
+            assertNotNull(lap3)
+            assertEquals(3, lap3?.lapNumber)
+            assertEquals(2000L, lap3?.lapTimeMillis) // 9000 - 7000
+            assertEquals(9000L, lap3?.totalTimeMillis)
+            assertEquals(3, StopwatchEngine.snapshot.value.laps.size)
 
             // 6. Reset back to Idle
             StopwatchEngine.reset()

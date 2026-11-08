@@ -48,6 +48,7 @@ import com.devvardhan.value.ui.components.rememberStopwatchElapsedMillis
 import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
+import com.devvardhan.value.ui.util.debugTestTag
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 
@@ -148,6 +149,7 @@ fun StopwatchScreen(
                                     .size(38.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Choose style gallery" }
+                                    .debugTestTag("btn_style")
                             ) {
                                 Icon(
                                     imageVector = AppIcons.Palette,
@@ -163,6 +165,7 @@ fun StopwatchScreen(
                                     .size(38.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
                                     .semantics { contentDescription = "Enter fullscreen mode" }
+                                    .debugTestTag("btn_fullscreen")
                             ) {
                                 Icon(
                                     imageVector = AppIcons.Fullscreen,
@@ -191,7 +194,8 @@ fun StopwatchScreen(
                         modifier = Modifier.fillMaxWidth(),
                         height = 50.dp,
                         latestSplitFormatted = landscapeSplitFormatted,
-                        elapsedMillis = liveElapsedMillis
+                        elapsedMillis = liveElapsedMillis,
+                        lastLapTotalMillis = laps.firstOrNull()?.totalTimeMillis ?: 0L
                     )
 
                     // Lap List filling remainder
@@ -200,6 +204,7 @@ fun StopwatchScreen(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
+                            .debugTestTag("list_laps")
                     )
                 }
             }
@@ -246,6 +251,7 @@ fun StopwatchScreen(
                                 .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Choose style gallery" }
+                                .debugTestTag("btn_style")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Palette,
@@ -261,6 +267,7 @@ fun StopwatchScreen(
                                 .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Enter fullscreen mode" }
+                                .debugTestTag("btn_fullscreen")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Fullscreen,
@@ -328,7 +335,8 @@ fun StopwatchScreen(
                         modifier = Modifier.fillMaxWidth(),
                         height = 56.dp,
                         latestSplitFormatted = portraitSplitFormatted,
-                        elapsedMillis = liveElapsedMillis
+                        elapsedMillis = liveElapsedMillis,
+                        lastLapTotalMillis = laps.firstOrNull()?.totalTimeMillis ?: 0L
                     )
                 }
 
@@ -338,6 +346,7 @@ fun StopwatchScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .debugTestTag("list_laps")
                 )
             }
         }

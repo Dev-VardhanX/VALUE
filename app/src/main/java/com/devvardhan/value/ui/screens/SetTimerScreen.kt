@@ -42,6 +42,7 @@ import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import com.devvardhan.value.ui.util.debugTestTag
 
 /**
  * Screen 1: Set Timer screen.
@@ -129,6 +130,7 @@ fun SetTimerScreen(
                                 .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Choose style gallery" }
+                                .debugTestTag("btn_style")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Palette,
@@ -168,7 +170,9 @@ fun SetTimerScreen(
                         text = stringResource(R.string.action_start),
                         onClick = onStartClick,
                         enabled = isStartEnabled,
-                        modifier = Modifier.fillMaxWidth(0.90f)
+                        modifier = Modifier
+                            .fillMaxWidth(0.90f)
+                            .debugTestTag("btn_start_timer")
                     )
                 }
             }
@@ -212,6 +216,7 @@ fun SetTimerScreen(
                                 .size(42.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
                                 .semantics { contentDescription = "Choose style gallery" }
+                                .debugTestTag("btn_style")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Palette,
@@ -289,7 +294,9 @@ fun SetTimerScreen(
                         text = stringResource(R.string.action_start),
                         onClick = onStartClick,
                         enabled = isStartEnabled,
-                        modifier = Modifier.fillMaxWidth(0.90f),
+                        modifier = Modifier
+                            .fillMaxWidth(0.90f)
+                            .debugTestTag("btn_start_timer"),
                         height = 56.dp
                     )
                 }

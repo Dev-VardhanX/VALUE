@@ -67,6 +67,7 @@ import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import com.devvardhan.value.ui.util.debugTestTag
 
 /**
  * Screen for choosing visual countdown or stopwatch styles in a live, high-fidelity gallery.
@@ -136,6 +137,7 @@ fun StyleGalleryScreen(
                             .size(48.dp)
                             .border(1.dp, BorderSubtle, CircleShape)
                             .semantics { contentDescription = "Close gallery" }
+                            .debugTestTag("btn_close_gallery")
                     ) {
                         Icon(
                             imageVector = AppIcons.Close,
@@ -386,14 +388,18 @@ private fun StylePreviewCard(
                 PrimaryPillButton(
                     text = stringResource(R.string.action_selected),
                     onClick = onSelect,
-                    modifier = Modifier.fillMaxWidth(0.9f),
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .debugTestTag("btn_select_style"),
                     height = 44.dp
                 )
             } else {
                 SecondaryPillButton(
                     text = stringResource(R.string.action_select),
                     onClick = onSelect,
-                    modifier = Modifier.fillMaxWidth(0.9f),
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .debugTestTag("btn_select_style"),
                     height = 44.dp
                 )
             }

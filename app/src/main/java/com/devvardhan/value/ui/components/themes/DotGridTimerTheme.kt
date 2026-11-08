@@ -17,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,29 +57,33 @@ fun DotGridTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val matrix = remember(maxWidth.value, maxHeight.value) {
-            AdaptiveLayoutHelper.calculateDotGridMatrix(maxWidth.value, maxHeight.value)
-        }
-
-        val isRowLayout = when (layoutMode) {
-            ThemeLayoutMode.AUTO -> matrix.isRowLayout
+        val isLandscape = when (layoutMode) {
+            ThemeLayoutMode.AUTO -> AdaptiveLayoutHelper.isLandscape(maxWidth.value, maxHeight.value, 1.15f)
             ThemeLayoutMode.PORTRAIT -> false
             ThemeLayoutMode.LANDSCAPE -> true
+        }
+
+        val matrix = remember(maxWidth.value, maxHeight.value, layoutMode) {
+            AdaptiveLayoutHelper.calculateDotGridMatrix(maxWidth.value, maxHeight.value, layoutMode)
         }
 
         val gridCanvas = @Composable {
             Canvas(
                 modifier = Modifier.size(width = matrix.gridWidth.dp, height = matrix.gridHeight.dp)
             ) {
-                val colSpacing = size.width / (matrix.columns - 1)
-                val rowSpacing = size.height / (matrix.rows - 1)
-                val dotRadius = (colSpacing * 0.22f).coerceIn(3.5f, 10f)
+                val padX = 8.dp.toPx()
+                val padY = 8.dp.toPx()
+                val usableW = size.width - 2 * padX
+                val usableH = size.height - 2 * padY
+                val colSpacing = usableW / (matrix.columns - 1)
+                val rowSpacing = usableH / (matrix.rows - 1)
+                val dotRadius = (colSpacing * 0.22f).coerceIn(3.5f, 9f)
 
                 var dotIndex = 0
                 for (r in 0 until matrix.rows) {
                     for (c in 0 until matrix.columns) {
-                        val cx = c * colSpacing
-                        val cy = r * rowSpacing
+                        val cx = padX + c * colSpacing
+                        val cy = padY + r * rowSpacing
                         val isActive = dotIndex < activeDots
                         val dotColor = if (isActive) PureWhite else Color(0xFF222222)
                         drawCircle(
@@ -91,7 +97,43 @@ fun DotGridTimerTheme(
             }
         }
 
+        val textMeasurer = rememberTextMeasurer()
+        val fontScale = LocalDensity.current.fontScale
+
         val digitsContent = @Composable {
+            val baseFontSize = if (fontScale > 1.0f) {
+                (matrix.fontSize / fontScale).sp
+            } else {
+                matrix.fontSize.sp
+            }
+
+            // Defensively ensure digits never exceed available width
+            val style = remember(baseFontSize) {
+                TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Light,
+                    fontSize = baseFontSize,
+                    letterSpacing = 1.sp,
+                    fontFeatureSettings = "tnum"
+                )
+            }
+            val measuredWidthDp = with(LocalDensity.current) {
+                textMeasurer.measure("00:00:00", style).size.width.toDp()
+            }
+            val maxAvailableDigitsWidthDp = (maxWidth - 24.dp).coerceAtLeast(60.dp)
+            val fittedFontSize = if (measuredWidthDp > maxAvailableDigitsWidthDp) {
+                val scale = (maxAvailableDigitsWidthDp.value / measuredWidthDp.value) * 0.95f
+                (baseFontSize.value * scale).sp
+            } else {
+                baseFontSize
+            }
+
+            val subFontSize = if (fontScale > 1.0f) {
+                ((matrix.fontSize * 0.22f).coerceIn(9f, 13f) / fontScale).sp
+            } else {
+                (matrix.fontSize * 0.22f).coerceIn(9f, 13f).sp
+            }
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -101,7 +143,7 @@ fun DotGridTimerTheme(
                     style = TextStyle(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Light,
-                        fontSize = matrix.fontSize.sp,
+                        fontSize = fittedFontSize,
                         letterSpacing = 1.sp,
                         fontFeatureSettings = "tnum"
                     ),
@@ -114,7 +156,7 @@ fun DotGridTimerTheme(
 
                 Text(
                     text = subText,
-                    fontSize = (matrix.fontSize * 0.22f).coerceIn(9f, 13f).sp,
+                    fontSize = subFontSize,
                     color = SubtleGray,
                     letterSpacing = 1.5.sp,
                     maxLines = 1,
@@ -123,29 +165,16 @@ fun DotGridTimerTheme(
             }
         }
 
-        if (isRowLayout) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                gridCanvas()
-                digitsContent()
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                gridCanvas()
-                Spacer(modifier = Modifier.height(20.dp))
-                digitsContent()
-            }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = if (isLandscape) 8.dp else 12.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            gridCanvas()
+            Spacer(modifier = Modifier.height(if (isLandscape) 14.dp else 20.dp))
+            digitsContent()
         }
     }
 }

@@ -53,6 +53,7 @@ import com.devvardhan.value.ui.components.rememberStopwatchElapsedMillis
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
+import com.devvardhan.value.ui.util.debugTestTag
 import kotlinx.coroutines.delay
 
 /**
@@ -76,7 +77,8 @@ fun FullscreenStopwatchScreen(
     onResetClick: () -> Unit,
     onExitFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
-    initialControlsVisible: Boolean = true
+    initialControlsVisible: Boolean = true,
+    lastLapTotalMillis: Long = 0L
 ) {
     val context = LocalContext.current
     var areControlsVisible by remember { mutableStateOf(initialControlsVisible) }
@@ -198,6 +200,7 @@ fun FullscreenStopwatchScreen(
                     .size(48.dp)
                     .background(Color(0x33FFFFFF), CircleShape)
                     .semantics { contentDescription = "Exit fullscreen mode" }
+                    .debugTestTag("btn_exit_fullscreen")
             ) {
                 Icon(
                     imageVector = AppIcons.FullscreenExit,
@@ -258,7 +261,8 @@ fun FullscreenStopwatchScreen(
                     onResetClick()
                 },
                 height = if (isLandscape) 52.dp else 56.dp,
-                elapsedMillis = liveElapsedMillis
+                elapsedMillis = liveElapsedMillis,
+                lastLapTotalMillis = lastLapTotalMillis
             )
         }
     }

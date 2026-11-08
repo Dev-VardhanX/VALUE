@@ -25,9 +25,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -272,14 +274,56 @@ fun HourglassTimerTheme(
             }
         }
 
+        val textMeasurer = rememberTextMeasurer()
+        val fontScale = LocalDensity.current.fontScale
+
         val digitsContent = @Composable {
+            val baseFontSize = if (fontScale > 1.0f) {
+                (dims.fontSize / fontScale).sp
+            } else {
+                dims.fontSize.sp
+            }
+
+            // Defensively ensure digits never exceed available width
+            val style = remember(baseFontSize) {
+                TextStyle(
+                    fontSize = baseFontSize,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = 2.sp,
+                    fontFeatureSettings = "tnum"
+                )
+            }
+            val measuredWidthDp = with(LocalDensity.current) {
+                textMeasurer.measure("00:00:00", style).size.width.toDp()
+            }
+            val maxAvailableDigitsWidthDp = if (dims.isRowLayout) {
+                val available = maxWidth - dims.width.dp - 36.dp
+                if (available < 60.dp) 60.dp else available
+            } else {
+                val available = maxWidth - 24.dp
+                if (available < 60.dp) 60.dp else available
+            }
+            val fittedFontSize = if (measuredWidthDp > maxAvailableDigitsWidthDp) {
+                val scale = (maxAvailableDigitsWidthDp.value / measuredWidthDp.value) * 0.95f
+                (baseFontSize.value * scale).sp
+            } else {
+                baseFontSize
+            }
+
+            val subFontSize = if (fontScale > 1.0f) {
+                ((dims.fontSize * 0.20f).coerceIn(11f, 16f) / fontScale).sp
+            } else {
+                (dims.fontSize * 0.20f).coerceIn(11f, 16f).sp
+            }
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = formattedTime,
-                    fontSize = dims.fontSize.sp,
+                    fontSize = fittedFontSize,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Light,
                     color = PureWhite,
@@ -293,7 +337,7 @@ fun HourglassTimerTheme(
 
                 Text(
                     text = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted",
-                    fontSize = (dims.fontSize * 0.20f).coerceIn(11f, 16f).sp,
+                    fontSize = subFontSize,
                     fontWeight = FontWeight.Medium,
                     color = SubtleGray,
                     letterSpacing = 2.sp,
@@ -308,8 +352,8 @@ fun HourglassTimerTheme(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 hourglassCanvas()

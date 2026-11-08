@@ -33,6 +33,7 @@ import com.devvardhan.value.ui.components.PrimaryPillButton
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
+import com.devvardhan.value.ui.util.debugTestTag
 
 /**
  * Screen 4: Finished state.
@@ -124,7 +125,9 @@ fun FinishedTimerScreen(
                 PrimaryPillButton(
                     text = stringResource(R.string.action_dismiss),
                     onClick = onDismissClick,
-                    modifier = Modifier.fillMaxWidth(0.85f)
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .debugTestTag("btn_dismiss_timer")
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }

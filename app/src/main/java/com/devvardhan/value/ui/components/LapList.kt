@@ -91,7 +91,7 @@ fun LapList(
                 fontWeight = FontWeight.SemiBold,
                 color = SubtleGray,
                 letterSpacing = 1.5.sp,
-                modifier = Modifier.width(90.dp)
+                modifier = Modifier.width(115.dp)
             )
 
             Text(
@@ -176,7 +176,7 @@ private fun LapRow(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.width(95.dp)
+            modifier = Modifier.width(115.dp)
         ) {
             Text(
                 text = "Lap $lapNumStr",
@@ -186,6 +186,8 @@ private fun LapRow(
                     fontWeight = FontWeight.Normal,
                     fontFeatureSettings = "tnum"
                 ),
+                maxLines = 1,
+                softWrap = false,
                 color = PureWhite
             )
 
@@ -206,6 +208,8 @@ private fun LapRow(
                 fontWeight = FontWeight.Normal,
                 fontFeatureSettings = "tnum"
             ),
+            maxLines = 1,
+            softWrap = false,
             color = if (isBest) PureWhite else SubtleGray
         )
 
@@ -217,6 +221,8 @@ private fun LapRow(
                 fontWeight = FontWeight.Normal,
                 fontFeatureSettings = "tnum"
             ),
+            maxLines = 1,
+            softWrap = false,
             color = PureWhite
         )
     }
@@ -235,7 +241,9 @@ private fun BestBadge() {
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
             color = PureBlack,
-            letterSpacing = 0.5.sp
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -254,7 +262,9 @@ private fun WorstBadge() {
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
             color = SubtleGray,
-            letterSpacing = 0.5.sp
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
