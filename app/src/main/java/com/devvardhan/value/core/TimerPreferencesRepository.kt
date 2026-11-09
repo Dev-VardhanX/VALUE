@@ -9,10 +9,13 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.devvardhan.value.model.AlarmSound
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.model.TimerTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 
 private val Context.timerDataStore: DataStore<Preferences> by preferencesDataStore(name = "value_timer_prefs")
 
@@ -45,6 +48,12 @@ class TimerPreferencesRepository(private val context: Context) {
         val LAST_HOURS = intPreferencesKey("last_hours")
         val LAST_MINUTES = intPreferencesKey("last_minutes")
         val LAST_SECONDS = intPreferencesKey("last_seconds")
+
+        val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
+        val GRADUAL_VOLUME_ENABLED = booleanPreferencesKey("gradual_volume_enabled")
+        val SELECTED_SOUND_ID = stringPreferencesKey("selected_sound_id")
+        val SELECTED_SOUND_NAME = stringPreferencesKey("selected_sound_name")
+        val IMPORTED_SOUNDS = stringPreferencesKey("imported_sounds")
 
         val SESSION_STATUS = stringPreferencesKey("session_status")
         val SESSION_TARGET_END_TIME = longPreferencesKey("session_target_end_time")
@@ -145,6 +154,104 @@ class TimerPreferencesRepository(private val context: Context) {
             prefs[PreferencesKeys.SESSION_TARGET_END_TIME] = 0L
             prefs[PreferencesKeys.SESSION_TOTAL_MILLIS] = 0L
             prefs[PreferencesKeys.SESSION_PAUSED_REMAINING] = 0L
+        }
+    }
+
+    val vibrationEnabledFlow: Flow<Boolean> = context.timerDataStore.data.map { prefs ->
+        prefs[PreferencesKeys.VIBRATION_ENABLED] ?: true
+    }
+
+    val gradualVolumeEnabledFlow: Flow<Boolean> = context.timerDataStore.data.map { prefs ->
+        prefs[PreferencesKeys.GRADUAL_VOLUME_ENABLED] ?: false
+    }
+
+    val selectedSoundIdFlow: Flow<String> = context.timerDataStore.data.map { prefs ->
+        prefs[PreferencesKeys.SELECTED_SOUND_ID] ?: AlarmSound.ID_PHONE_DEFAULT
+    }
+
+    val selectedSoundNameFlow: Flow<String> = context.timerDataStore.data.map { prefs ->
+        prefs[PreferencesKeys.SELECTED_SOUND_NAME] ?: "Phone default"
+    }
+
+    val importedSoundsFlow: Flow<List<AlarmSound.UserSound>> = context.timerDataStore.data.map { prefs ->
+        deserializeUserSounds(prefs[PreferencesKeys.IMPORTED_SOUNDS])
+    }
+
+    suspend fun saveVibrationEnabled(enabled: Boolean) {
+        context.timerDataStore.edit { prefs ->
+            prefs[PreferencesKeys.VIBRATION_ENABLED] = enabled
+        }
+    }
+
+    suspend fun saveGradualVolumeEnabled(enabled: Boolean) {
+        context.timerDataStore.edit { prefs ->
+            prefs[PreferencesKeys.GRADUAL_VOLUME_ENABLED] = enabled
+        }
+    }
+
+    suspend fun saveSelectedSound(id: String, name: String) {
+        context.timerDataStore.edit { prefs ->
+            prefs[PreferencesKeys.SELECTED_SOUND_ID] = id
+            prefs[PreferencesKeys.SELECTED_SOUND_NAME] = name
+        }
+    }
+
+    suspend fun addImportedSound(sound: AlarmSound.UserSound) {
+        context.timerDataStore.edit { prefs ->
+            val currentList = deserializeUserSounds(prefs[PreferencesKeys.IMPORTED_SOUNDS]).toMutableList()
+            // Avoid duplicate URI
+            currentList.removeAll { it.uriString == sound.uriString }
+            currentList.add(sound)
+            prefs[PreferencesKeys.IMPORTED_SOUNDS] = serializeUserSounds(currentList)
+        }
+    }
+
+    suspend fun removeImportedSound(uriString: String) {
+        context.timerDataStore.edit { prefs ->
+            val currentList = deserializeUserSounds(prefs[PreferencesKeys.IMPORTED_SOUNDS]).toMutableList()
+            currentList.removeAll { it.uriString == uriString }
+            prefs[PreferencesKeys.IMPORTED_SOUNDS] = serializeUserSounds(currentList)
+            // If the deleted sound was selected, fallback to PhoneDefault
+            if (prefs[PreferencesKeys.SELECTED_SOUND_ID] == uriString) {
+                prefs[PreferencesKeys.SELECTED_SOUND_ID] = AlarmSound.ID_PHONE_DEFAULT
+                prefs[PreferencesKeys.SELECTED_SOUND_NAME] = "Phone default"
+            }
+        }
+    }
+
+    private fun serializeUserSounds(sounds: List<AlarmSound.UserSound>): String {
+        val arr = JSONArray()
+        for (s in sounds) {
+            val obj = JSONObject().apply {
+                put("uri", s.uriString)
+                put("name", s.name)
+                put("size", s.sizeBytes)
+                put("time", s.importTimestamp)
+            }
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun deserializeUserSounds(jsonStr: String?): List<AlarmSound.UserSound> {
+        if (jsonStr.isNullOrEmpty()) return emptyList()
+        return try {
+            val arr = JSONArray(jsonStr)
+            val list = mutableListOf<AlarmSound.UserSound>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    AlarmSound.UserSound(
+                        uriString = obj.getString("uri"),
+                        name = obj.getString("name"),
+                        sizeBytes = obj.optLong("size", 0L),
+                        importTimestamp = obj.optLong("time", 0L)
+                    )
+                )
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }

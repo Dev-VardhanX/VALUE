@@ -7,25 +7,45 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.Ringtone
 import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
+import androidx.core.net.toUri
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import com.devvardhan.value.model.AlarmSound
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import java.io.File
+import java.io.FileInputStream
 
 /**
- * Handles playing the alarm sound with audio focus acquisition and vibration when the timer finishes.
- * All calls are safely guarded so hardware quirks or missing permissions never crash the app.
+ * Handles playing the alarm sound with audio focus acquisition, gradual volume ramp-up,
+ * sound selection (Phone default, Value Tones, My Sounds), and vibration when the timer finishes.
+ * Also provides preview playback for the Sound configuration screen.
  */
 class AlarmSoundManager(private val context: Context) {
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private val preferencesRepo = TimerPreferencesRepository(context)
     private var audioFocusRequest: AudioFocusRequest? = null
 
     private var mediaPlayer: MediaPlayer? = null
     private var fallbackRingtone: Ringtone? = null
     private var isAlarmActive = false
+    private var volumeRampJob: Job? = null
+
+    // For preview playback on the sound configuration screen
+    private var previewPlayer: MediaPlayer? = null
+    private var previewTimeoutHandler = Handler(Looper.getMainLooper())
+    private var previewStopRunnable: Runnable? = null
 
     private val vibrator: Vibrator? by lazy {
         try {
@@ -49,8 +69,23 @@ class AlarmSoundManager(private val context: Context) {
         Log.d(TAG, "startAlarm triggered")
 
         requestAudioFocus()
-        startSound()
-        startVibration()
+
+        val (vibrationEnabled, gradualVolume, soundId) = runBlocking {
+            try {
+                Triple(
+                    preferencesRepo.vibrationEnabledFlow.first(),
+                    preferencesRepo.gradualVolumeEnabledFlow.first(),
+                    preferencesRepo.selectedSoundIdFlow.first()
+                )
+            } catch (e: Exception) {
+                Triple(true, false, AlarmSound.ID_PHONE_DEFAULT)
+            }
+        }
+
+        startSound(soundId, gradualVolume)
+        if (vibrationEnabled) {
+            startVibration()
+        }
     }
 
     private fun requestAudioFocus() {
@@ -63,7 +98,7 @@ class AlarmSoundManager(private val context: Context) {
 
                 audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                     .setAudioAttributes(playbackAttributes)
-                    .setOnAudioFocusChangeListener { /* No-op, alarm priority */ }
+                    .setOnAudioFocusChangeListener { /* Alarm priority */ }
                     .build()
 
                 audioFocusRequest?.let { audioManager?.requestAudioFocus(it) }
@@ -94,14 +129,9 @@ class AlarmSoundManager(private val context: Context) {
         }
     }
 
-    private fun startSound() {
+    private fun startSound(soundId: String, gradualVolume: Boolean) {
         try {
-            val alarmUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(context, alarmUri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -109,23 +139,88 @@ class AlarmSoundManager(private val context: Context) {
                         .build()
                 )
                 isLooping = true
-                prepare()
-                start()
+            }
+
+            setDataSourceForSound(mediaPlayer!!, soundId)
+            mediaPlayer?.prepare()
+
+            if (gradualVolume) {
+                mediaPlayer?.setVolume(0.08f, 0.08f)
+                mediaPlayer?.start()
+                startVolumeRamp()
+            } else {
+                mediaPlayer?.setVolume(1.0f, 1.0f)
+                mediaPlayer?.start()
             }
         } catch (e: Exception) {
-            Log.w(TAG, "MediaPlayer failed, attempting Ringtone fallback", e)
-            try {
-                val fallbackUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                fallbackRingtone = RingtoneManager.getRingtone(context, fallbackUri)?.apply {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        isLooping = true
-                    }
-                    play()
+            Log.w(TAG, "MediaPlayer failed for soundId: $soundId, trying default ringtone fallback", e)
+            playFallbackRingtone()
+        }
+    }
+
+    private fun setDataSourceForSound(player: MediaPlayer, soundId: String) {
+        when {
+            soundId.startsWith("builtin_") -> {
+                val toneKey = soundId.removePrefix("builtin_")
+                val file = ValueToneGenerator.getToneFile(context, toneKey)
+                FileInputStream(file).use { fis ->
+                    player.setDataSource(fis.fd)
                 }
-            } catch (fallbackEx: Exception) {
-                Log.e(TAG, "Ringtone fallback also failed", fallbackEx)
             }
+            soundId == AlarmSound.ID_PHONE_DEFAULT -> {
+                val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                player.setDataSource(context, defaultUri)
+            }
+            else -> {
+                // User imported URI
+                try {
+                    val uri = soundId.toUri()
+                    player.setDataSource(context, uri)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to load user sound URI, falling back to default", e)
+                    val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                    player.setDataSource(context, defaultUri)
+                }
+            }
+        }
+    }
+
+    private fun startVolumeRamp() {
+        volumeRampJob?.cancel()
+        volumeRampJob = CoroutineScope(Dispatchers.Default).launch {
+            val totalSteps = 20
+            val intervalMs = 500L // 20 * 500ms = 10 seconds total ramp
+            for (step in 1..totalSteps) {
+                delay(intervalMs)
+                if (!isAlarmActive) break
+                val fraction = step.toFloat() / totalSteps
+                val volume = (0.08f + (1.0f - 0.08f) * fraction).coerceIn(0f, 1f)
+                try {
+                    mediaPlayer?.setVolume(volume, volume)
+                } catch (e: Exception) {
+                    break
+                }
+            }
+        }
+    }
+
+    private fun playFallbackRingtone() {
+        try {
+            val fallbackUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+
+            fallbackRingtone = RingtoneManager.getRingtone(context, fallbackUri)?.apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    isLooping = true
+                }
+                play()
+            }
+        } catch (fallbackEx: Exception) {
+            Log.e(TAG, "Ringtone fallback also failed", fallbackEx)
         }
     }
 
@@ -151,6 +246,9 @@ class AlarmSoundManager(private val context: Context) {
         if (!isAlarmActive) return
         isAlarmActive = false
         Log.d(TAG, "stopAlarm triggered")
+
+        volumeRampJob?.cancel()
+        volumeRampJob = null
 
         try {
             mediaPlayer?.let {
@@ -181,6 +279,65 @@ class AlarmSoundManager(private val context: Context) {
         }
 
         abandonAudioFocus()
+    }
+
+    /**
+     * Previews an alarm sound for at most 5 seconds with audio focus on STREAM_ALARM.
+     * Stops any ongoing preview immediately. Does not trigger vibration or start services.
+     */
+    @Synchronized
+    fun previewSound(sound: AlarmSound, onFinished: () -> Unit = {}) {
+        stopPreview()
+
+        requestAudioFocus()
+        try {
+            previewPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                isLooping = true
+            }
+
+            setDataSourceForSound(previewPlayer!!, sound.id)
+            previewPlayer?.prepare()
+            previewPlayer?.start()
+
+            // 5 second maximum preview duration
+            previewStopRunnable = Runnable {
+                stopPreview()
+                onFinished()
+            }
+            previewTimeoutHandler.postDelayed(previewStopRunnable!!, 5000L)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to preview sound: ${sound.id}", e)
+            stopPreview()
+            onFinished()
+        }
+    }
+
+    @Synchronized
+    fun stopPreview() {
+        previewStopRunnable?.let { previewTimeoutHandler.removeCallbacks(it) }
+        previewStopRunnable = null
+
+        try {
+            previewPlayer?.let {
+                if (it.isPlaying) it.stop()
+                it.reset()
+                it.release()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error releasing preview MediaPlayer", e)
+        } finally {
+            previewPlayer = null
+        }
+
+        if (!isAlarmActive) {
+            abandonAudioFocus()
+        }
     }
 
     companion object {

@@ -5,6 +5,8 @@ package com.devvardhan.value.core
  */
 enum class BackAction {
     EXIT_FULLSCREEN,
+    DISMISS_SUBPAGE_TO_SETTINGS,
+    DISMISS_SETTINGS_TO_MAIN,
     DISMISS_GALLERY,
     GALLERY_STEP_BACK,
     FINISH_ACTIVITY,
@@ -13,7 +15,8 @@ enum class BackAction {
 }
 
 /**
- * Pure decision logic for system and gesture back navigation.
+ * Pure decision logic for system and gesture back navigation across all navigation levels:
+ * Subpage (Gallery in edit mode, Sound) -> Settings -> Main
  */
 object BackPressHandlerLogic {
 
@@ -21,45 +24,57 @@ object BackPressHandlerLogic {
 
     fun decideBackAction(
         isFullscreen: Boolean,
-        isGalleryOpen: Boolean,
         isFirstLaunchGallery: Boolean,
-        isTimerRunningOrPaused: Boolean,
-        isStopwatchRunningOrPaused: Boolean,
-        lastBackPressTimeMs: Long,
-        currentTimeMs: Long,
-        doubleBackIntervalMs: Long = DEFAULT_DOUBLE_BACK_INTERVAL_MS,
-        galleryStep: Int = 1
+        galleryStep: Int = 1,
+        isSubpageOpen: Boolean = false,
+        isSettingsOpen: Boolean = false,
+        isGalleryOpen: Boolean = false,
+        isTimerRunningOrPaused: Boolean = false,
+        isStopwatchRunningOrPaused: Boolean = false,
+        lastBackPressTimeMs: Long = 0L,
+        currentTimeMs: Long = 0L,
+        doubleBackIntervalMs: Long = DEFAULT_DOUBLE_BACK_INTERVAL_MS
     ): Pair<BackAction, Long> {
         // 1. Fullscreen: back exits fullscreen only
         if (isFullscreen) {
             return BackAction.EXIT_FULLSCREEN to lastBackPressTimeMs
         }
 
-        // 2. Gallery:
-        // First launch:
-        //   Step 2: returns to step 1 (timer choice kept and shown as selected).
-        //   Step 1: exits the app (FINISH_ACTIVITY).
-        // Edit mode (isFirstLaunchGallery == false):
-        //   Returns to main screen without changing anything (DISMISS_GALLERY).
-        if (isGalleryOpen) {
-            return if (isFirstLaunchGallery) {
-                if (galleryStep == 2) {
-                    BackAction.GALLERY_STEP_BACK to lastBackPressTimeMs
-                } else {
-                    BackAction.FINISH_ACTIVITY to lastBackPressTimeMs
-                }
+        // 2. First-launch guided gallery:
+        //    Step 2: returns to Step 1.
+        //    Step 1: exits the app.
+        if (isFirstLaunchGallery) {
+            return if (galleryStep == 2) {
+                BackAction.GALLERY_STEP_BACK to lastBackPressTimeMs
             } else {
-                BackAction.DISMISS_GALLERY to lastBackPressTimeMs
+                BackAction.FINISH_ACTIVITY to lastBackPressTimeMs
             }
         }
 
-        // 3. Main Screen:
-        // If timer or stopwatch is running or paused: move app to background (moveTaskToBack)
+        // 3. Sub-page level (Timer Style Gallery, Stopwatch Style Gallery, Sound screen):
+        //    Always goes up exactly one level to Settings.
+        if (isSubpageOpen) {
+            return BackAction.DISMISS_SUBPAGE_TO_SETTINGS to lastBackPressTimeMs
+        }
+
+        // 4. Settings level:
+        //    Always goes up to Main screen.
+        if (isSettingsOpen) {
+            return BackAction.DISMISS_SETTINGS_TO_MAIN to lastBackPressTimeMs
+        }
+
+        // Legacy / direct gallery without settings
+        if (isGalleryOpen) {
+            return BackAction.DISMISS_GALLERY to lastBackPressTimeMs
+        }
+
+        // 5. Main Screen:
+        //    If timer or stopwatch is running or paused: move app to background
         if (isTimerRunningOrPaused || isStopwatchRunningOrPaused) {
             return BackAction.MOVE_TO_BACK to lastBackPressTimeMs
         }
 
-        // 4. Main Screen Idle: double-press to exit within 2 seconds
+        // 6. Main Screen Idle: double-press to exit within 2 seconds
         val elapsedSinceLastBack = currentTimeMs - lastBackPressTimeMs
         return if (elapsedSinceLastBack in 0..doubleBackIntervalMs) {
             BackAction.FINISH_ACTIVITY to 0L
@@ -68,4 +83,3 @@ object BackPressHandlerLogic {
         }
     }
 }
-

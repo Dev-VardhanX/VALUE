@@ -8,11 +8,61 @@ import org.junit.Test
 class BackPressHandlerTest {
 
     @Test
-    fun testFullscreenAlwaysExitsFullscreenOnly() {
+    fun testSubpageDismissesToSettings() {
+        // Subpage (Timer Style Gallery edit mode, Stopwatch Style Gallery edit mode, Sound screen)
+        // returns to Settings screen
+        val (action, _) = BackPressHandlerLogic.decideBackAction(
+            isFullscreen = false,
+            isFirstLaunchGallery = false,
+            isSubpageOpen = true,
+            isSettingsOpen = false,
+            isTimerRunningOrPaused = false,
+            isStopwatchRunningOrPaused = false,
+            lastBackPressTimeMs = 0L,
+            currentTimeMs = 1000L
+        )
+        assertEquals(BackAction.DISMISS_SUBPAGE_TO_SETTINGS, action)
+    }
+
+    @Test
+    fun testSettingsDismissesToMain() {
+        // Settings screen back press returns to Main screen
+        val (action, _) = BackPressHandlerLogic.decideBackAction(
+            isFullscreen = false,
+            isFirstLaunchGallery = false,
+            isSubpageOpen = false,
+            isSettingsOpen = true,
+            isTimerRunningOrPaused = false,
+            isStopwatchRunningOrPaused = false,
+            lastBackPressTimeMs = 0L,
+            currentTimeMs = 1000L
+        )
+        assertEquals(BackAction.DISMISS_SETTINGS_TO_MAIN, action)
+    }
+
+    @Test
+    fun testSettingsDismissesToMainEvenWhenTimerIsRunning() {
+        // Settings screen back press always returns to Main screen, even if a timer is running
+        val (action, _) = BackPressHandlerLogic.decideBackAction(
+            isFullscreen = false,
+            isFirstLaunchGallery = false,
+            isSubpageOpen = false,
+            isSettingsOpen = true,
+            isTimerRunningOrPaused = true,
+            isStopwatchRunningOrPaused = false,
+            lastBackPressTimeMs = 0L,
+            currentTimeMs = 1000L
+        )
+        assertEquals(BackAction.DISMISS_SETTINGS_TO_MAIN, action)
+    }
+
+    @Test
+    fun testFullscreenTakesPrecedenceOverSettings() {
         val (action, _) = BackPressHandlerLogic.decideBackAction(
             isFullscreen = true,
-            isGalleryOpen = false,
             isFirstLaunchGallery = false,
+            isSubpageOpen = false,
+            isSettingsOpen = true,
             isTimerRunningOrPaused = false,
             isStopwatchRunningOrPaused = false,
             lastBackPressTimeMs = 0L,

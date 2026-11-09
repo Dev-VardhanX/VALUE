@@ -67,7 +67,7 @@ fun StopwatchScreen(
     currentMode: AppMode,
     isTimerRunning: Boolean,
     onModeSelected: (AppMode) -> Unit,
-    onOpenGallery: () -> Unit,
+    onOpenSettings: () -> Unit,
     onStartClick: () -> Unit,
     onPauseClick: () -> Unit,
     onResumeClick: () -> Unit,
@@ -84,6 +84,8 @@ fun StopwatchScreen(
     )
 
     val isRunning = status == StopwatchStatus.Running
+    val settingsDesc = stringResource(R.string.action_settings)
+    val fullscreenDesc = stringResource(R.string.action_fullscreen)
 
     BoxWithConstraints(
         modifier = modifier
@@ -144,34 +146,34 @@ fun StopwatchScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = onOpenGallery,
+                                onClick = onOpenSettings,
                                 modifier = Modifier
-                                    .size(38.dp)
+                                    .size(48.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
-                                    .semantics { contentDescription = "Choose style gallery" }
-                                    .debugTestTag("btn_style")
+                                    .semantics { contentDescription = settingsDesc }
+                                    .debugTestTag("btn_settings")
                             ) {
                                 Icon(
-                                    imageVector = AppIcons.Palette,
-                                    contentDescription = stringResource(R.string.action_style),
+                                    imageVector = AppIcons.Settings,
+                                    contentDescription = settingsDesc,
                                     tint = PureWhite,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
 
                             IconButton(
                                 onClick = onFullscreenClick,
                                 modifier = Modifier
-                                    .size(38.dp)
+                                    .size(48.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
-                                    .semantics { contentDescription = "Enter fullscreen mode" }
+                                    .semantics { contentDescription = fullscreenDesc }
                                     .debugTestTag("btn_fullscreen")
                             ) {
                                 Icon(
                                     imageVector = AppIcons.Fullscreen,
-                                    contentDescription = stringResource(R.string.action_fullscreen),
+                                    contentDescription = fullscreenDesc,
                                     tint = PureWhite,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
@@ -246,32 +248,32 @@ fun StopwatchScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = onOpenGallery,
+                            onClick = onOpenSettings,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(48.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Choose style gallery" }
-                                .debugTestTag("btn_style")
+                            .semantics { contentDescription = settingsDesc }
+                            .debugTestTag("btn_settings")
                         ) {
                             Icon(
-                                imageVector = AppIcons.Palette,
-                                contentDescription = stringResource(R.string.action_style),
+                                imageVector = AppIcons.Settings,
+                                contentDescription = settingsDesc,
                                 tint = PureWhite,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onFullscreenClick,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(48.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Enter fullscreen mode" }
-                                .debugTestTag("btn_fullscreen")
+                            .semantics { contentDescription = fullscreenDesc }
+                            .debugTestTag("btn_fullscreen")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Fullscreen,
-                                contentDescription = stringResource(R.string.action_fullscreen),
+                                contentDescription = fullscreenDesc,
                                 tint = PureWhite,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -378,7 +380,7 @@ private fun PreviewStopwatch360x640ZeroLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
-            onOpenGallery = {},
+            onOpenSettings = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},
@@ -402,7 +404,7 @@ private fun PreviewStopwatch360x640FiveLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
-            onOpenGallery = {},
+            onOpenSettings = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},
@@ -426,7 +428,7 @@ private fun PreviewStopwatch412x915Font13ZeroLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = true,
             onModeSelected = {},
-            onOpenGallery = {},
+            onOpenSettings = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},
@@ -450,7 +452,7 @@ private fun PreviewStopwatchLandscapeFiveLaps() {
             currentMode = AppMode.STOPWATCH,
             isTimerRunning = false,
             onModeSelected = {},
-            onOpenGallery = {},
+            onOpenSettings = {},
             onStartClick = {},
             onPauseClick = {},
             onResumeClick = {},

@@ -60,7 +60,7 @@ fun RunningTimerScreen(
     pausedRemainingMillis: Long,
     totalMillis: Long,
     theme: TimerTheme,
-    onOpenGallery: () -> Unit,
+    onOpenSettings: () -> Unit,
     onPauseClick: () -> Unit,
     onResumeClick: () -> Unit,
     onResetClick: () -> Unit,
@@ -71,6 +71,8 @@ fun RunningTimerScreen(
     modifier: Modifier = Modifier
 ) {
     val isPaused = status == TimerStatus.Paused
+    val settingsDesc = stringResource(R.string.action_settings)
+    val fullscreenDesc = stringResource(R.string.action_fullscreen)
 
     // High performance frame clock for smooth 60fps drawing without recomposition
     val liveRemainingMillis by rememberCountdownRemainingMillis(
@@ -137,32 +139,32 @@ fun RunningTimerScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = onOpenGallery,
+                                onClick = onOpenSettings,
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(48.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
-                                    .semantics { contentDescription = "Choose style gallery" }
-                                    .debugTestTag("btn_style")
+                                    .semantics { contentDescription = settingsDesc }
+                                    .debugTestTag("btn_settings")
                             ) {
                                 Icon(
-                                    imageVector = AppIcons.Palette,
-                                    contentDescription = stringResource(R.string.action_style),
+                                    imageVector = AppIcons.Settings,
+                                    contentDescription = settingsDesc,
                                     tint = PureWhite,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
 
                             IconButton(
                                 onClick = onFullscreenClick,
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(48.dp)
                                     .border(1.dp, BorderSubtle, CircleShape)
-                                    .semantics { contentDescription = "Enter fullscreen mode" }
+                                    .semantics { contentDescription = fullscreenDesc }
                                     .debugTestTag("btn_fullscreen")
                             ) {
                                 Icon(
                                     imageVector = AppIcons.Fullscreen,
-                                    contentDescription = stringResource(R.string.action_fullscreen),
+                                    contentDescription = fullscreenDesc,
                                     tint = PureWhite,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -236,32 +238,32 @@ fun RunningTimerScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = onOpenGallery,
+                            onClick = onOpenSettings,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(48.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Choose style gallery" }
-                                .debugTestTag("btn_style")
+                                .semantics { contentDescription = settingsDesc }
+                                .debugTestTag("btn_settings")
                         ) {
                             Icon(
-                                imageVector = AppIcons.Palette,
-                                contentDescription = stringResource(R.string.action_style),
+                                imageVector = AppIcons.Settings,
+                                contentDescription = settingsDesc,
                                 tint = PureWhite,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onFullscreenClick,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(48.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Enter fullscreen mode" }
+                                .semantics { contentDescription = fullscreenDesc }
                                 .debugTestTag("btn_fullscreen")
                         ) {
                             Icon(
                                 imageVector = AppIcons.Fullscreen,
-                                contentDescription = stringResource(R.string.action_fullscreen),
+                                contentDescription = fullscreenDesc,
                                 tint = PureWhite,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -344,7 +346,7 @@ private fun RunningTimerScreenPortraitPreview() {
             pausedRemainingMillis = 120000L,
             totalMillis = 300000L,
             theme = TimerTheme.CIRCLE,
-            onOpenGallery = {},
+            onOpenSettings = {},
             onPauseClick = {},
             onResumeClick = {},
             onResetClick = {},
@@ -365,7 +367,7 @@ private fun RunningTimerScreenLandscapePreview() {
             pausedRemainingMillis = 120000L,
             totalMillis = 300000L,
             theme = TimerTheme.HOURGLASS,
-            onOpenGallery = {},
+            onOpenSettings = {},
             onPauseClick = {},
             onResumeClick = {},
             onResetClick = {},

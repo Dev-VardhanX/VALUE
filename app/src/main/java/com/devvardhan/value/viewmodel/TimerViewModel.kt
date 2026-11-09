@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.devvardhan.value.core.TimerEngine
 import com.devvardhan.value.core.TimerPreferencesRepository
+import com.devvardhan.value.model.AlarmSound
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.model.TimerUiState
@@ -70,6 +71,42 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     val hasChosenStyleFlow = preferencesRepo.hasChosenStyleFlow
     val onboardingStepFlow = preferencesRepo.onboardingStepFlow
+
+    val vibrationEnabledFlow = preferencesRepo.vibrationEnabledFlow
+    val gradualVolumeEnabledFlow = preferencesRepo.gradualVolumeEnabledFlow
+    val selectedSoundIdFlow = preferencesRepo.selectedSoundIdFlow
+    val selectedSoundNameFlow = preferencesRepo.selectedSoundNameFlow
+    val importedSoundsFlow = preferencesRepo.importedSoundsFlow
+
+    fun setVibrationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepo.saveVibrationEnabled(enabled)
+        }
+    }
+
+    fun setGradualVolumeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepo.saveGradualVolumeEnabled(enabled)
+        }
+    }
+
+    fun selectSound(sound: AlarmSound) {
+        viewModelScope.launch {
+            preferencesRepo.saveSelectedSound(sound.id, sound.displayName)
+        }
+    }
+
+    fun addImportedSound(sound: AlarmSound.UserSound) {
+        viewModelScope.launch {
+            preferencesRepo.addImportedSound(sound)
+        }
+    }
+
+    fun removeImportedSound(uriString: String) {
+        viewModelScope.launch {
+            preferencesRepo.removeImportedSound(uriString)
+        }
+    }
 
     fun setHasChosenStyle(chosen: Boolean = true) {
         viewModelScope.launch {

@@ -58,7 +58,7 @@ fun SetTimerScreen(
     onHoursChange: (Int) -> Unit,
     onMinutesChange: (Int) -> Unit,
     onSecondsChange: (Int) -> Unit,
-    onOpenGallery: () -> Unit,
+    onOpenSettings: () -> Unit,
     onStartClick: () -> Unit,
     currentMode: AppMode = AppMode.TIMER,
     isStopwatchRunning: Boolean = false,
@@ -67,6 +67,7 @@ fun SetTimerScreen(
 ) {
     val totalSeconds = hours * 3600L + minutes * 60L + seconds
     val isStartEnabled = totalSeconds > 0L
+    val settingsDesc = stringResource(R.string.action_settings)
 
     BoxWithConstraints(
         modifier = modifier
@@ -110,7 +111,7 @@ fun SetTimerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Header row: VALUE wordmark on left, Style button on right
+                    // Header row: VALUE wordmark on left, Settings button on right
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -125,18 +126,18 @@ fun SetTimerScreen(
                         )
 
                         IconButton(
-                            onClick = onOpenGallery,
+                            onClick = onOpenSettings,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(48.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Choose style gallery" }
-                                .debugTestTag("btn_style")
+                                .semantics { contentDescription = settingsDesc }
+                                .debugTestTag("btn_settings")
                         ) {
                             Icon(
-                                imageVector = AppIcons.Palette,
-                                contentDescription = stringResource(R.string.action_style),
+                                imageVector = AppIcons.Settings,
+                                contentDescription = settingsDesc,
                                 tint = PureWhite,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -149,22 +150,13 @@ fun SetTimerScreen(
                         modifier = Modifier.width(200.dp)
                     )
 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = stringResource(R.string.set_timer_title),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Light,
-                            color = PureWhite,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.style_prefix, selectedTheme.displayName),
-                            fontSize = 12.sp,
-                            color = SubtleGray,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.set_timer_title),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Light,
+                        color = PureWhite,
+                        letterSpacing = 0.5.sp
+                    )
 
                     PrimaryPillButton(
                         text = stringResource(R.string.action_start),
@@ -194,7 +186,7 @@ fun SetTimerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Row 1: Wordmark on left, Style button on right
+                    // Row 1: Wordmark on left, Settings button on right
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -211,18 +203,18 @@ fun SetTimerScreen(
                         )
 
                         IconButton(
-                            onClick = onOpenGallery,
+                            onClick = onOpenSettings,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(48.dp)
                                 .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Choose style gallery" }
-                                .debugTestTag("btn_style")
+                                .semantics { contentDescription = settingsDesc }
+                                .debugTestTag("btn_settings")
                         ) {
                             Icon(
-                                imageVector = AppIcons.Palette,
-                                contentDescription = stringResource(R.string.action_style),
+                                imageVector = AppIcons.Settings,
+                                contentDescription = settingsDesc,
                                 tint = PureWhite,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -274,28 +266,19 @@ fun SetTimerScreen(
                     )
                 }
 
-                // Bottom area: subtle style caption and large Start button
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                // Bottom area: large Start button (no style or sound controls)
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 12.dp)
+                        .padding(bottom = 12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = stringResource(R.string.style_prefix, selectedTheme.displayName),
-                        fontSize = 12.sp,
-                        color = SubtleGray,
-                        letterSpacing = 0.5.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
                     PrimaryPillButton(
                         text = stringResource(R.string.action_start),
                         onClick = onStartClick,
                         enabled = isStartEnabled,
                         modifier = Modifier
-                            .fillMaxWidth(0.90f)
+                            .fillMaxWidth()
                             .debugTestTag("btn_start_timer"),
                         height = 56.dp
                     )
@@ -321,7 +304,7 @@ private fun SetTimerScreenPortraitPreview() {
             onHoursChange = {},
             onMinutesChange = {},
             onSecondsChange = {},
-            onOpenGallery = {},
+            onOpenSettings = {},
             onStartClick = {},
             currentMode = AppMode.TIMER,
             isStopwatchRunning = true
@@ -341,7 +324,7 @@ private fun SetTimerScreenLandscapePreview() {
             onHoursChange = {},
             onMinutesChange = {},
             onSecondsChange = {},
-            onOpenGallery = {},
+            onOpenSettings = {},
             onStartClick = {},
             currentMode = AppMode.TIMER,
             isStopwatchRunning = false
