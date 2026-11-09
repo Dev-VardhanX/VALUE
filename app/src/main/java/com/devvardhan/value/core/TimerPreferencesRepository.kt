@@ -41,6 +41,7 @@ class TimerPreferencesRepository(private val context: Context) {
     private object PreferencesKeys {
         val SELECTED_THEME = stringPreferencesKey("selected_theme")
         val HAS_CHOSEN_STYLE = booleanPreferencesKey("has_chosen_style")
+        val ONBOARDING_STEP = intPreferencesKey("onboarding_step")
         val LAST_HOURS = intPreferencesKey("last_hours")
         val LAST_MINUTES = intPreferencesKey("last_minutes")
         val LAST_SECONDS = intPreferencesKey("last_seconds")
@@ -53,6 +54,10 @@ class TimerPreferencesRepository(private val context: Context) {
 
     val hasChosenStyleFlow: Flow<Boolean> = context.timerDataStore.data.map { prefs ->
         prefs[PreferencesKeys.HAS_CHOSEN_STYLE] ?: false
+    }
+
+    val onboardingStepFlow: Flow<Int> = context.timerDataStore.data.map { prefs ->
+        prefs[PreferencesKeys.ONBOARDING_STEP] ?: 1
     }
 
     val selectedThemeFlow: Flow<TimerTheme> = context.timerDataStore.data.map { prefs ->
@@ -100,6 +105,15 @@ class TimerPreferencesRepository(private val context: Context) {
     suspend fun setHasChosenStyle(chosen: Boolean = true) {
         context.timerDataStore.edit { prefs ->
             prefs[PreferencesKeys.HAS_CHOSEN_STYLE] = chosen
+            if (!chosen) {
+                prefs[PreferencesKeys.ONBOARDING_STEP] = 1
+            }
+        }
+    }
+
+    suspend fun saveOnboardingStep(step: Int) {
+        context.timerDataStore.edit { prefs ->
+            prefs[PreferencesKeys.ONBOARDING_STEP] = step
         }
     }
 

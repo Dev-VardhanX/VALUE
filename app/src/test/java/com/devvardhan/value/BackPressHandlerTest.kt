@@ -22,7 +22,8 @@ class BackPressHandlerTest {
     }
 
     @Test
-    fun testGalleryOpenedFromStyleDismissesToMain() {
+    fun testGalleryEditModeDismissesToMain() {
+        // Edit mode (isFirstLaunchGallery = false) returns to main screen without changing anything
         val (action, _) = BackPressHandlerLogic.decideBackAction(
             isFullscreen = false,
             isGalleryOpen = true,
@@ -36,7 +37,8 @@ class BackPressHandlerTest {
     }
 
     @Test
-    fun testGalleryFirstLaunchFinishesActivity() {
+    fun testGalleryFirstLaunchStep1ExitsApp() {
+        // First launch Step 1 (galleryStep = 1): Back exits the application
         val (action, _) = BackPressHandlerLogic.decideBackAction(
             isFullscreen = false,
             isGalleryOpen = true,
@@ -44,9 +46,26 @@ class BackPressHandlerTest {
             isTimerRunningOrPaused = false,
             isStopwatchRunningOrPaused = false,
             lastBackPressTimeMs = 0L,
-            currentTimeMs = 1000L
+            currentTimeMs = 1000L,
+            galleryStep = 1
         )
         assertEquals(BackAction.FINISH_ACTIVITY, action)
+    }
+
+    @Test
+    fun testGalleryFirstLaunchStep2ReturnsToStep1() {
+        // First launch Step 2 (galleryStep = 2): Back returns to Step 1
+        val (action, _) = BackPressHandlerLogic.decideBackAction(
+            isFullscreen = false,
+            isGalleryOpen = true,
+            isFirstLaunchGallery = true,
+            isTimerRunningOrPaused = false,
+            isStopwatchRunningOrPaused = false,
+            lastBackPressTimeMs = 0L,
+            currentTimeMs = 1000L,
+            galleryStep = 2
+        )
+        assertEquals(BackAction.GALLERY_STEP_BACK, action)
     }
 
     @Test
@@ -118,4 +137,3 @@ class BackPressHandlerTest {
         assertEquals(7600L, delayedTime)
     }
 }
-

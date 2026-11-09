@@ -6,6 +6,7 @@ package com.devvardhan.value.core
 enum class BackAction {
     EXIT_FULLSCREEN,
     DISMISS_GALLERY,
+    GALLERY_STEP_BACK,
     FINISH_ACTIVITY,
     MOVE_TO_BACK,
     SHOW_TOAST_AGAIN_TO_EXIT
@@ -26,7 +27,8 @@ object BackPressHandlerLogic {
         isStopwatchRunningOrPaused: Boolean,
         lastBackPressTimeMs: Long,
         currentTimeMs: Long,
-        doubleBackIntervalMs: Long = DEFAULT_DOUBLE_BACK_INTERVAL_MS
+        doubleBackIntervalMs: Long = DEFAULT_DOUBLE_BACK_INTERVAL_MS,
+        galleryStep: Int = 1
     ): Pair<BackAction, Long> {
         // 1. Fullscreen: back exits fullscreen only
         if (isFullscreen) {
@@ -34,11 +36,18 @@ object BackPressHandlerLogic {
         }
 
         // 2. Gallery:
-        // Opened from Style button: back returns to main screen, never exits app.
-        // First launch (no style chosen yet): back finishes activity.
+        // First launch:
+        //   Step 2: returns to step 1 (timer choice kept and shown as selected).
+        //   Step 1: exits the app (FINISH_ACTIVITY).
+        // Edit mode (isFirstLaunchGallery == false):
+        //   Returns to main screen without changing anything (DISMISS_GALLERY).
         if (isGalleryOpen) {
             return if (isFirstLaunchGallery) {
-                BackAction.FINISH_ACTIVITY to lastBackPressTimeMs
+                if (galleryStep == 2) {
+                    BackAction.GALLERY_STEP_BACK to lastBackPressTimeMs
+                } else {
+                    BackAction.FINISH_ACTIVITY to lastBackPressTimeMs
+                }
             } else {
                 BackAction.DISMISS_GALLERY to lastBackPressTimeMs
             }

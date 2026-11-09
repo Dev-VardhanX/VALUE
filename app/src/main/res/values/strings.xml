@@ -33,6 +33,13 @@
     <string name="notification_stopwatch_title">VALUE Stopwatch</string>
     <string name="gallery_title">Choose your style</string>
     <string name="gallery_subtitle">You can change it anytime</string>
+    <string name="gallery_step1_title">Choose your timer style</string>
+    <string name="gallery_step1_subtitle">Step 1 of 2 · you can change it later</string>
+    <string name="gallery_step2_title">Choose your stopwatch style</string>
+    <string name="gallery_step2_subtitle">Step 2 of 2 · you can change it later</string>
+    <string name="gallery_edit_timer_title">Timer style</string>
+    <string name="gallery_edit_stopwatch_title">Stopwatch style</string>
+    <string name="gallery_edit_subtitle">Tap a style to apply it</string>
     <string name="action_style">Style</string>
     <string name="action_select">Select</string>
     <string name="action_selected">Selected</string>

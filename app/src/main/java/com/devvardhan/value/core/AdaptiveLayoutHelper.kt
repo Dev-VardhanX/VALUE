@@ -311,6 +311,14 @@ object AdaptiveLayoutHelper {
     }
 
     /**
+     * Validates that a theme is supported for the Stopwatch mode.
+     * Falls back to TimerTheme.CIRCLE if the theme is invalid or exclusive to Timer (e.g. Hourglass, Liquid Fill, Dot Grid).
+     */
+    fun validateStopwatchTheme(theme: TimerTheme): TimerTheme {
+        return if (theme in TimerTheme.stopwatchThemes) theme else TimerTheme.CIRCLE
+    }
+
+    /**
      * Returns the styles displayed in the gallery based on the mode.
      * Timer: All 7 styles.
      * Stopwatch: 5 stopwatch-compatible styles (excluding Hourglass and Liquid Fill).

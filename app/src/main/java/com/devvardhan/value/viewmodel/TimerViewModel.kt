@@ -69,10 +69,17 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     val hasChosenStyleFlow = preferencesRepo.hasChosenStyleFlow
+    val onboardingStepFlow = preferencesRepo.onboardingStepFlow
 
     fun setHasChosenStyle(chosen: Boolean = true) {
         viewModelScope.launch {
             preferencesRepo.setHasChosenStyle(chosen)
+        }
+    }
+
+    fun setOnboardingStep(step: Int) {
+        viewModelScope.launch {
+            preferencesRepo.saveOnboardingStep(step)
         }
     }
 

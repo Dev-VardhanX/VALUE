@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -139,12 +140,19 @@ fun ValueApp(
     val timerState by timerViewModel.uiState.collectAsStateWithLifecycle()
     val stopwatchState by stopwatchViewModel.uiState.collectAsStateWithLifecycle()
     val hasChosenStyle by timerViewModel.hasChosenStyleFlow.collectAsStateWithLifecycle(initialValue = null)
+    val onboardingStep by timerViewModel.onboardingStepFlow.collectAsStateWithLifecycle(initialValue = 1)
 
     val isTimerRunning = timerState.status == TimerStatus.Running
     val isStopwatchRunning = stopwatchState.status == StopwatchStatus.Running
 
     // Navigation state between Style Gallery and Main App
     var currentScreen by rememberSaveable { mutableStateOf<AppScreen?>(null) }
+    var firstLaunchStep by rememberSaveable { mutableIntStateOf(1) }
+
+    // Synchronize step with persistent onboarding progress (e.g. resumes at Step 2 after process death)
+    LaunchedEffect(onboardingStep) {
+        firstLaunchStep = onboardingStep
+    }
 
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
     var showExitToast by remember { mutableStateOf(false) }
@@ -171,7 +179,8 @@ fun ValueApp(
             isTimerRunningOrPaused = isTimerRunningOrPaused,
             isStopwatchRunningOrPaused = isStopwatchRunningOrPaused,
             lastBackPressTimeMs = lastBackPressTime,
-            currentTimeMs = System.currentTimeMillis()
+            currentTimeMs = System.currentTimeMillis(),
+            galleryStep = firstLaunchStep
         )
         lastBackPressTime = newBackTime
 
@@ -182,6 +191,10 @@ fun ValueApp(
                 } else {
                     timerViewModel.setFullscreen(false)
                 }
+            }
+            BackAction.GALLERY_STEP_BACK -> {
+                firstLaunchStep = 1
+                timerViewModel.setOnboardingStep(1)
             }
             BackAction.DISMISS_GALLERY -> {
                 currentScreen = AppScreen.MAIN
@@ -267,23 +280,32 @@ fun ValueApp(
             ) { activeScreen ->
             when (activeScreen) {
                 AppScreen.GALLERY -> {
-                    val activeTheme = if (appMode == AppMode.STOPWATCH) {
-                        stopwatchState.theme
-                    } else {
-                        timerState.theme
-                    }
-
                     StyleGalleryScreen(
-                        mode = appMode,
-                        selectedTheme = activeTheme,
-                        canDismiss = hasChosenStyle == true,
-                        onThemeSelected = { newTheme ->
+                        isFirstLaunch = hasChosenStyle != true,
+                        firstLaunchStep = firstLaunchStep,
+                        editMode = appMode,
+                        timerTheme = timerState.theme,
+                        stopwatchTheme = stopwatchState.theme,
+                        onTimerThemeSelected = { newTheme ->
+                            timerViewModel.setTheme(newTheme)
+                            timerViewModel.setOnboardingStep(2)
+                            firstLaunchStep = 2
+                        },
+                        onStopwatchThemeSelected = { newTheme ->
+                            stopwatchViewModel.setTheme(newTheme)
+                            timerViewModel.setHasChosenStyle(true)
+                            appMode = AppMode.TIMER
+                            scope.launch {
+                                preferencesRepo.saveAppMode(AppMode.TIMER)
+                            }
+                            currentScreen = AppScreen.MAIN
+                        },
+                        onThemeSelectedInEditMode = { newTheme ->
                             if (appMode == AppMode.STOPWATCH) {
                                 stopwatchViewModel.setTheme(newTheme)
                             } else {
                                 timerViewModel.setTheme(newTheme)
                             }
-                            timerViewModel.setHasChosenStyle(true)
                             currentScreen = AppScreen.MAIN
                         },
                         onDismiss = {
