@@ -74,8 +74,8 @@ fun RunningTimerScreen(
     val settingsDesc = stringResource(R.string.action_settings)
     val fullscreenDesc = stringResource(R.string.action_fullscreen)
 
-    // High performance frame clock for smooth 60fps drawing without recomposition
-    val liveRemainingMillis by rememberCountdownRemainingMillis(
+    // High performance frame clock; stored in State and provided as lambda to avoid recomposing the screen
+    val liveRemainingMillisState = rememberCountdownRemainingMillis(
         status = status,
         targetEndTime = targetEndTime,
         pausedRemainingMillis = pausedRemainingMillis
@@ -105,7 +105,7 @@ fun RunningTimerScreen(
                 ) {
                     TimerVisual(
                         theme = theme,
-                        remainingMillis = liveRemainingMillis,
+                        remainingMillisProvider = { liveRemainingMillisState.value },
                         totalMillis = totalMillis,
                         status = status
                     )
@@ -299,7 +299,7 @@ fun RunningTimerScreen(
                 ) {
                     TimerVisual(
                         theme = theme,
-                        remainingMillis = liveRemainingMillis,
+                        remainingMillisProvider = { liveRemainingMillisState.value },
                         totalMillis = totalMillis,
                         status = status
                     )

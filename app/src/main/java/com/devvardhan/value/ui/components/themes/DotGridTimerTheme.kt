@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,20 +39,37 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
 /**
  * Theme 7: Dot Grid (Timer only).
  * A matrix of 60 dots representing remaining countdown fraction.
+ *
+ * Performance optimizations:
+ * - Active dot count calculation moved into the Canvas draw phase.
+ * - Digits derived once per second via derivedStateOf, avoiding per-frame recomposition.
  */
 @Composable
 fun DotGridTimerTheme(
-    remainingMillis: Long = 0L,
+    remainingMillisProvider: () -> Long = { 0L },
     totalMillis: Long = 0L,
     status: TimerStatus = TimerStatus.Running,
     modifier: Modifier = Modifier,
     layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
     val totalDots = 60
-    val activeDots = ThemeFractionCalculator.calculateDotGridActiveCount(remainingMillis, totalMillis, totalDots)
-    val formattedTime = TimeUtils.formatHms(remainingMillis)
     val isPaused = status == TimerStatus.Paused
-    val totalTimeFormatted = TimeUtils.formatHms(totalMillis)
+
+    // Optimization: Digits derived once per second to prevent unnecessary recomposition
+    val displayedSeconds by remember(remainingMillisProvider) {
+        derivedStateOf {
+            val rem = remainingMillisProvider()
+            if (rem <= 0L) 0L else (rem + 999L) / 1000L
+        }
+    }
+    val formattedTime by remember(displayedSeconds) {
+        derivedStateOf {
+            TimeUtils.formatHmsFromSeconds(displayedSeconds)
+        }
+    }
+    val totalTimeFormatted = remember(totalMillis) {
+        TimeUtils.formatHms(totalMillis)
+    }
     val subText = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted"
 
     BoxWithConstraints(
@@ -71,6 +90,10 @@ fun DotGridTimerTheme(
             Canvas(
                 modifier = Modifier.size(width = matrix.gridWidth.dp, height = matrix.gridHeight.dp)
             ) {
+                // Optimization: activeDots evaluated strictly inside draw phase
+                val rem = remainingMillisProvider()
+                val activeDots = ThemeFractionCalculator.calculateDotGridActiveCount(rem, totalMillis, totalDots)
+
                 val padX = 8.dp.toPx()
                 val padY = 8.dp.toPx()
                 val usableW = size.width - 2 * padX
@@ -152,11 +175,12 @@ fun DotGridTimerTheme(
                     softWrap = false
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = subText,
                     fontSize = subFontSize,
+                    fontWeight = FontWeight.Medium,
                     color = SubtleGray,
                     letterSpacing = 1.5.sp,
                     maxLines = 1,
@@ -179,29 +203,71 @@ fun DotGridTimerTheme(
     }
 }
 
+/**
+ * Backward-compatible overload accepting a direct Long value.
+ */
+@Composable
+fun DotGridTimerTheme(
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
+) = DotGridTimerTheme(
+    remainingMillisProvider = { remainingMillis },
+    totalMillis = totalMillis,
+    status = status,
+    modifier = modifier,
+    layoutMode = layoutMode
+)
+
 // -------------------------------------------------------------------------------------------------
 // PREVIEWS
 // -------------------------------------------------------------------------------------------------
 
-@Preview(name = "DotGrid Timer Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Preview(name = "DotGrid Portrait 50%", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun DotGridTimerPortraitPreview() {
+private fun DotGridTimerThemePortraitPreview() {
     ValueTimerTheme {
         DotGridTimerTheme(
-            remainingMillis = 1800000L,
-            totalMillis = 3600000L,
+            remainingMillis = 60000L,
+            totalMillis = 120000L,
             status = TimerStatus.Running
         )
     }
 }
 
-@Preview(name = "DotGrid Timer Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Preview(name = "DotGrid Paused", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun DotGridTimerLandscapePreview() {
+private fun DotGridTimerThemePausedPreview() {
     ValueTimerTheme {
         DotGridTimerTheme(
-            remainingMillis = 1800000L,
-            totalMillis = 3600000L,
+            remainingMillis = 45000L,
+            totalMillis = 120000L,
+            status = TimerStatus.Paused
+        )
+    }
+}
+
+@Preview(name = "DotGrid Landscape", showBackground = true, backgroundColor = 0xFF000000, widthDp = 844, heightDp = 390)
+@Composable
+private fun DotGridTimerThemeLandscapePreview() {
+    ValueTimerTheme {
+        DotGridTimerTheme(
+            remainingMillis = 80000L,
+            totalMillis = 120000L,
+            status = TimerStatus.Running
+        )
+    }
+}
+
+@Preview(name = "DotGrid Tablet", showBackground = true, backgroundColor = 0xFF000000, widthDp = 1280, heightDp = 800)
+@Composable
+private fun DotGridTimerThemeTabletPreview() {
+    ValueTimerTheme {
+        DotGridTimerTheme(
+            remainingMillis = 90000L,
+            totalMillis = 120000L,
             status = TimerStatus.Running
         )
     }

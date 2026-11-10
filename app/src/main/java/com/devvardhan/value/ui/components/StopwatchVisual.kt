@@ -16,11 +16,14 @@ import com.devvardhan.value.ui.components.themes.ThreeBoxTimerTheme
  * Universal stopwatch visual container that renders the selected theme with smooth 300ms crossfade transitions.
  * Centiseconds are rendered inline with the time on the same baseline across all themes.
  * Supported themes: Circle, Concentric Rings, Three Box, Flip Clock.
+ *
+ * Performance optimization: Accepts a lambda provider for elapsedMillis so callers do not
+ * recompose on every animation frame. The value is evaluated strictly in the draw phase.
  */
 @Composable
 fun StopwatchVisual(
     theme: TimerTheme,
-    elapsedMillis: Long,
+    elapsedMillisProvider: () -> Long,
     status: StopwatchStatus,
     modifier: Modifier = Modifier,
     layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
@@ -34,28 +37,28 @@ fun StopwatchVisual(
         when (activeTheme) {
             TimerTheme.CIRCLE -> CircleTimerTheme(
                 isStopwatch = true,
-                stopwatchElapsedMillis = elapsedMillis,
+                stopwatchElapsedMillisProvider = elapsedMillisProvider,
                 stopwatchStatus = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.CONCENTRIC_RINGS -> ConcentricRingsTimerTheme(
                 isStopwatch = true,
-                stopwatchElapsedMillis = elapsedMillis,
+                stopwatchElapsedMillisProvider = elapsedMillisProvider,
                 stopwatchStatus = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.THREE_BOX -> ThreeBoxTimerTheme(
                 isStopwatch = true,
-                stopwatchElapsedMillis = elapsedMillis,
+                stopwatchElapsedMillisProvider = elapsedMillisProvider,
                 stopwatchStatus = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.FLIP_CLOCK -> FlipClockTimerTheme(
                 isStopwatch = true,
-                stopwatchElapsedMillis = elapsedMillis,
+                stopwatchElapsedMillisProvider = elapsedMillisProvider,
                 stopwatchStatus = status,
                 layoutMode = layoutMode
             )
@@ -63,10 +66,28 @@ fun StopwatchVisual(
             // Hourglass, Liquid Fill, Dot Grid fallback safely to Circle if ever encountered
             else -> CircleTimerTheme(
                 isStopwatch = true,
-                stopwatchElapsedMillis = elapsedMillis,
+                stopwatchElapsedMillisProvider = elapsedMillisProvider,
                 stopwatchStatus = status,
                 layoutMode = layoutMode
             )
         }
     }
 }
+
+/**
+ * Backward-compatible overload accepting a direct Long value.
+ */
+@Composable
+fun StopwatchVisual(
+    theme: TimerTheme,
+    elapsedMillis: Long,
+    status: StopwatchStatus,
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
+) = StopwatchVisual(
+    theme = theme,
+    elapsedMillisProvider = { elapsedMillis },
+    status = status,
+    modifier = modifier,
+    layoutMode = layoutMode
+)

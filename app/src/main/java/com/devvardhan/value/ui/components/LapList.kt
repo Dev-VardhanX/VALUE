@@ -141,13 +141,14 @@ fun LapList(
                     val isBest = lap.lapNumber == bestLapNumber
                     val isWorst = lap.lapNumber == worstLapNumber
 
-                    LapRow(
-                        lap = lap,
-                        isBest = isBest,
-                        isWorst = isWorst
-                    )
-
-                    HorizontalDivider(color = Color(0x1AFFFFFF), thickness = 0.5.dp)
+                    Column(modifier = Modifier.animateItem()) {
+                        LapRow(
+                            lap = lap,
+                            isBest = isBest,
+                            isWorst = isWorst
+                        )
+                        HorizontalDivider(color = Color(0x1AFFFFFF), thickness = 0.5.dp)
+                    }
                 }
             }
         }

@@ -91,8 +91,8 @@ fun FullscreenStopwatchScreen(
         label = "FullscreenStopwatchControlsAlpha"
     )
 
-    // Decoupled 60fps frame clock
-    val liveElapsedMillis by rememberStopwatchElapsedMillis(
+    // Decoupled 60fps frame clock; stored in State to avoid recomposing the screen
+    val liveElapsedMillisState = rememberStopwatchElapsedMillis(
         status = status,
         startTime = startTime,
         accumulatedMillis = accumulatedMillis
@@ -172,7 +172,7 @@ fun FullscreenStopwatchScreen(
         ) {
             StopwatchVisual(
                 theme = theme,
-                elapsedMillis = liveElapsedMillis,
+                elapsedMillisProvider = { liveElapsedMillisState.value },
                 status = status,
                 modifier = Modifier.fillMaxSize()
             )
@@ -261,7 +261,7 @@ fun FullscreenStopwatchScreen(
                     onResetClick()
                 },
                 height = if (isLandscape) 52.dp else 56.dp,
-                elapsedMillis = liveElapsedMillis,
+                elapsedMillis = liveElapsedMillisState.value,
                 lastLapTotalMillis = lastLapTotalMillis
             )
         }

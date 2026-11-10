@@ -1,6 +1,7 @@
 package com.devvardhan.value.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,11 +9,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,6 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.ui.theme.BorderSubtle
+import com.devvardhan.value.ui.theme.Motion
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
@@ -43,6 +51,7 @@ import com.devvardhan.value.ui.util.debugTestTag
 
 /**
  * Minimal black-and-white segmented pill switch between Timer and Stopwatch.
+ * Uses a smoothly sliding physical white pill with subtle spring physics and light haptic feedback.
  * Fixed-size text with single line, no truncation, fits comfortably at font scale 1.3.
  * Displays an active status dot on unselected segments when that engine is currently running.
  */
@@ -54,24 +63,50 @@ fun ModeSwitch(
     onModeSelected: (AppMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val isReducedMotion = remember(context) { Motion.isAnimationsDisabled(context) }
+
+    BoxWithConstraints(
         modifier = modifier
             .height(38.dp)
             .clip(CircleShape)
             .background(Color(0xFF0C0C0C))
             .border(1.dp, BorderSubtle, CircleShape)
             .padding(3.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.CenterStart
     ) {
+        val segmentWidth = maxWidth / 2f
+        val pillOffset by animateDpAsState(
+            targetValue = if (currentMode == AppMode.TIMER) 0.dp else segmentWidth,
+            animationSpec = if (isReducedMotion) tween(0) else Motion.PillSpringDp,
+            label = "SlidingPill"
+        )
+
+        // Smoothly sliding physical white pill
+        Box(
+            modifier = Modifier
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .offset(x = pillOffset)
+                .clip(CircleShape)
+                .background(PureWhite)
+        )
+
         Row(
-            modifier = Modifier.fillMaxHeight(),
+            modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ModeSegment(
                 label = stringResource(R.string.mode_timer),
                 isSelected = currentMode == AppMode.TIMER,
                 showActiveDot = (currentMode != AppMode.TIMER) && isTimerRunning,
-                onClick = { onModeSelected(AppMode.TIMER) },
+                onClick = {
+                    if (currentMode != AppMode.TIMER) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onModeSelected(AppMode.TIMER)
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     .debugTestTag("mode_timer")
@@ -81,7 +116,12 @@ fun ModeSwitch(
                 label = stringResource(R.string.mode_stopwatch),
                 isSelected = currentMode == AppMode.STOPWATCH,
                 showActiveDot = (currentMode != AppMode.STOPWATCH) && isStopwatchRunning,
-                onClick = { onModeSelected(AppMode.STOPWATCH) },
+                onClick = {
+                    if (currentMode != AppMode.STOPWATCH) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onModeSelected(AppMode.STOPWATCH)
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     .debugTestTag("mode_stopwatch")
@@ -98,14 +138,9 @@ private fun ModeSegment(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bgColor by animateColorAsState(
-        targetValue = if (isSelected) PureWhite else Color.Transparent,
-        animationSpec = tween(durationMillis = 200),
-        label = "SegmentBg"
-    )
     val textColor by animateColorAsState(
         targetValue = if (isSelected) PureBlack else SubtleGray,
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = tween(durationMillis = 180),
         label = "SegmentText"
     )
 
@@ -114,7 +149,6 @@ private fun ModeSegment(
             .fillMaxHeight()
             .defaultMinSize(minWidth = 98.dp)
             .clip(CircleShape)
-            .background(bgColor)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

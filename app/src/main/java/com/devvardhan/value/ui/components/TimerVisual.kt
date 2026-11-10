@@ -17,11 +17,14 @@ import com.devvardhan.value.ui.components.themes.ThreeBoxTimerTheme
 
 /**
  * Universal timer visual container that renders the selected theme with smooth 300ms crossfade transitions.
+ *
+ * Performance optimization: Accepts a lambda provider for remainingMillis so callers do not
+ * recompose on every animation frame. The value is evaluated strictly in the draw phase.
  */
 @Composable
 fun TimerVisual(
     theme: TimerTheme,
-    remainingMillis: Long,
+    remainingMillisProvider: () -> Long,
     totalMillis: Long,
     status: TimerStatus,
     modifier: Modifier = Modifier,
@@ -35,49 +38,49 @@ fun TimerVisual(
     ) { activeTheme ->
         when (activeTheme) {
             TimerTheme.CIRCLE -> CircleTimerTheme(
-                remainingMillis = remainingMillis,
+                remainingMillisProvider = remainingMillisProvider,
                 totalMillis = totalMillis,
                 status = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.HOURGLASS -> HourglassTimerTheme(
-                remainingMillis = remainingMillis,
+                remainingMillisProvider = remainingMillisProvider,
                 totalMillis = totalMillis,
                 status = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.THREE_BOX -> ThreeBoxTimerTheme(
-                remainingMillis = remainingMillis,
+                remainingMillisProvider = remainingMillisProvider,
                 totalMillis = totalMillis,
                 status = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.CONCENTRIC_RINGS -> ConcentricRingsTimerTheme(
-                remainingMillis = remainingMillis,
+                remainingMillisProvider = remainingMillisProvider,
                 totalMillis = totalMillis,
                 status = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.FLIP_CLOCK -> FlipClockTimerTheme(
-                remainingMillis = remainingMillis,
+                remainingMillisProvider = remainingMillisProvider,
                 totalMillis = totalMillis,
                 status = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.LIQUID_FILL -> LiquidFillTimerTheme(
-                remainingMillis = remainingMillis,
+                remainingMillisProvider = remainingMillisProvider,
                 totalMillis = totalMillis,
                 status = status,
                 layoutMode = layoutMode
             )
 
             TimerTheme.DOT_GRID -> DotGridTimerTheme(
-                remainingMillis = remainingMillis,
+                remainingMillisProvider = remainingMillisProvider,
                 totalMillis = totalMillis,
                 status = status,
                 layoutMode = layoutMode
@@ -85,3 +88,23 @@ fun TimerVisual(
         }
     }
 }
+
+/**
+ * Backward-compatible overload accepting a direct Long value.
+ */
+@Composable
+fun TimerVisual(
+    theme: TimerTheme,
+    remainingMillis: Long,
+    totalMillis: Long,
+    status: TimerStatus,
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
+) = TimerVisual(
+    theme = theme,
+    remainingMillisProvider = { remainingMillis },
+    totalMillis = totalMillis,
+    status = status,
+    modifier = modifier,
+    layoutMode = layoutMode
+)

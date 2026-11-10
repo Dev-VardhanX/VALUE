@@ -113,7 +113,7 @@ fun StopwatchScreen(
                 ) {
                     StopwatchVisual(
                         theme = theme,
-                        elapsedMillis = liveElapsedMillis,
+                        elapsedMillisProvider = { liveElapsedMillis },
                         status = status
                     )
                 }
@@ -309,7 +309,7 @@ fun StopwatchScreen(
                 ) {
                     StopwatchVisual(
                         theme = theme,
-                        elapsedMillis = liveElapsedMillis,
+                        elapsedMillisProvider = { liveElapsedMillis },
                         status = status
                     )
                 }

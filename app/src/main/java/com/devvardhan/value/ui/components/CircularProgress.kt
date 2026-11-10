@@ -19,14 +19,16 @@ import com.devvardhan.value.ui.theme.PureWhite
 /**
  * Minimalist circular progress ring that cleanly renders remaining time progress.
  *
- * @param progress Value from 0.0f (completed) to 1.0f (full duration remaining).
+ * @param progressProvider Lambda provider for progress from 0.0f (completed) to 1.0f (full duration remaining).
+ *        Read strictly in the Canvas draw phase to avoid recomposing the outer composable and centered content.
  * @param modifier Layout modifier.
  * @param strokeWidth Thickness of the progress indicator line.
+ * @param showLeadingDot Whether to draw a leading circular dot at the progress head.
  * @param content Optional composable to center inside the circular ring.
  */
 @Composable
 fun MinimalCircularProgress(
-    progress: Float,
+    progressProvider: () -> Float,
     modifier: Modifier = Modifier,
     size: Dp = 280.dp,
     strokeWidth: Dp = 3.dp,
@@ -55,7 +57,8 @@ fun MinimalCircularProgress(
             )
 
             // Pure white active progress arc (drawn inside the exact same square rect)
-            val sweep = (progress.coerceIn(0f, 1f)) * 360f
+            // Progress provider is read in the draw phase so the parent composable does not recompose
+            val sweep = (progressProvider().coerceIn(0f, 1f)) * 360f
             if (sweep > 0f) {
                 drawArc(
                     color = PureWhite,
@@ -86,3 +89,23 @@ fun MinimalCircularProgress(
         content()
     }
 }
+
+/**
+ * Backward-compatible overload accepting a plain Float progress value.
+ */
+@Composable
+fun MinimalCircularProgress(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    size: Dp = 280.dp,
+    strokeWidth: Dp = 3.dp,
+    showLeadingDot: Boolean = false,
+    content: @Composable () -> Unit = {}
+) = MinimalCircularProgress(
+    progressProvider = { progress },
+    modifier = modifier,
+    size = size,
+    strokeWidth = strokeWidth,
+    showLeadingDot = showLeadingDot,
+    content = content
+)

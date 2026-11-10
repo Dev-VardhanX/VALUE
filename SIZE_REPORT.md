@@ -17,31 +17,31 @@ The observation of "~20 MB" stems from inspecting the **unminified debug APK (`a
 
 ## 2. Before vs. After Size Comparison
 
-| Artifact / Metric | Initial (Pre-Optimization) | Post-Optimization (Timer Only) | Timer + Stopwatch | Current (Production Polish) | Net Change vs. Initial |
+| Artifact / Metric | Initial (Pre-Optimization) | Post-Optimization (Timer Only) | Timer + Stopwatch | Polish & Smoothness (Latest) | Net Change vs. Initial |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Debug APK (`app-debug.apk`)** | 19,280,898 bytes (18.39 MB) | 11,964,342 bytes (11.41 MB) | 12,063,374 bytes (11.50 MB) | **12,178,566 bytes (11.61 MB)** | **-7.10 MB (-36.8%)** |
-| **Release APK (`app-release.apk`)** | 1,807,604 bytes (1.72 MB) | 1,673,306 bytes (1.59 MB) | 1,706,526 bytes (1.63 MB) | **1,689,182 bytes (1.61 MB)** | **-118,422 bytes (-6.5%)** |
-| **Release AAB (`app-release.aab`)** | 3,732,166 bytes (3.56 MB) | 3,696,230 bytes (3.52 MB) | 3,777,707 bytes (3.60 MB) | **3,757,600 bytes (3.58 MB)** | **+25,434 bytes (+0.7%)** |
-| **`resources.arsc` in Release** | 134,376 bytes | 12,572 bytes | ~13 KB | **~13 KB** | **-121 KB (-90.3%)** |
-| **Estimated arm64 Download Size** | ~1.65 MB | ~1.50 MB | ~1.53 MB | **~1.51 MB** | **-140 KB** |
-| **Estimated arm64 Install Size** | ~5.3 MB | ~5.1 MB | ~5.2 MB | **~5.1 MB** | **-200 KB** |
+| **Debug APK (`app-debug.apk`)** | 19,280,898 bytes (18.39 MB) | 11,964,342 bytes (11.41 MB) | 12,063,374 bytes (11.50 MB) | **12,366,855 bytes (11.79 MB)** | **-6.91 MB (-35.9%)** |
+| **Release APK (`app-release.apk`)** | 1,807,604 bytes (1.72 MB) | 1,673,306 bytes (1.59 MB) | 1,706,526 bytes (1.63 MB) | **1,762,154 bytes (1.68 MB)** | **-45,450 bytes (-2.5%)** |
+| **Release AAB (`app-release.aab`)** | 3,732,166 bytes (3.56 MB) | 3,696,230 bytes (3.52 MB) | 3,777,707 bytes (3.60 MB) | **~3.78 MB** | **+50 KB (+1.3%)** |
+| **`resources.arsc` in Release** | 134,376 bytes | 12,572 bytes | ~13 KB | **18,212 bytes (~18 KB)** | **-116 KB (-86.4%)** |
+| **Estimated arm64 Download Size** | ~1.65 MB | ~1.50 MB | ~1.53 MB | **~1.58 MB** | **-70 KB** |
+| **Estimated arm64 Install Size** | ~5.3 MB | ~5.1 MB | ~5.2 MB | **~5.3 MB** | **0 KB** |
 
 ---
 
 ## 3. Release APK Internal Size Breakdown (Current Release)
 
-Unzipping `app-release.apk` (1,672,710 bytes total):
+Unzipping `app-release.apk` (1,762,154 bytes total):
 
 | Component / Directory | Compressed Size | % of Total Size | Notes |
 | :--- | :--- | :--- | :--- |
-| **`classes.dex`** | ~1.46 MB | 85.8% | Single R8 full-mode minified DEX file with both Timer and Stopwatch |
-| **`lib/` (Native Libraries)** | ~60 KB | 3.5% | Stored uncompressed (4 ABIs: arm64, arm32, x86, x64) |
-| **`res/` (Resources)** | ~36 KB | 2.1% | Compiled drawables, webp mipmaps, XML vector paths |
-| **`META-INF/`** | ~18 KB | 1.1% | APK signing manifests and required licenses |
-| **`resources.arsc`** | ~13 KB | 0.8% | Resource lookup table (stripped to English only) |
-| **`kotlin/`** | ~12 KB | 0.7% | Kotlin runtime built-in metadata |
-| **`assets/`** | ~8 KB | 0.5% | ART baseline profile (`baseline.prof`) |
-| **Other (`AndroidManifest.xml`)** | ~3 KB | 0.2% | Binary manifest and zip directory |
+| **`classes.dex`** | ~1.45 MB (1,516,384 B) | 86.1% | Single R8 full-mode minified DEX with Timer, Stopwatch, Settings, and Splash APIs |
+| **`lib/` (Native Libraries)** | ~60 KB (60,292 B) | 3.4% | Stored uncompressed (4 ABIs: arm64, arm32, x86, x64) |
+| **`res/` (Resources)** | ~36 KB (35,959 B) | 2.0% | Compiled drawables, webp mipmaps, XML vector paths, v31 themes |
+| **`resources.arsc`** | ~18 KB (18,212 B) | 1.0% | Resource lookup table (stripped to English only) |
+| **`META-INF/`** | ~18 KB (17,994 B) | 1.0% | APK signing manifests and required licenses |
+| **`kotlin/`** | ~12 KB (12,053 B) | 0.7% | Kotlin runtime built-in metadata |
+| **`assets/`** | ~7.5 KB (7,558 B) | 0.4% | ART baseline profile (`baseline.prof`) |
+| **Other (`AndroidManifest.xml`)** | ~3 KB (3,085 B) | 0.2% | Binary manifest and zip directory |
 
 ### Native Libraries (`lib/`) Breakdown per ABI
 | ABI | Library | Size | Purpose |

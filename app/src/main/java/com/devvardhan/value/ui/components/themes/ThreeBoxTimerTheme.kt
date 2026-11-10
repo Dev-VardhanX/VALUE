@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,23 +58,36 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
  * Three split stadium scoreboard panels for Hours, Minutes, and Seconds.
  * Tabular monospace digits with exact 1 : 1.6 tall cells and no glyph clipping.
  * In Stopwatch mode: centiseconds sit on the same baseline directly to the right of the seconds panel.
+ *
+ * Performance optimizations:
+ * - Digits extracted once per second via derivedStateOf, avoiding recompositions on every millisecond.
+ * - Centiseconds rendered directly in the draw phase via CentisecondsSlot.
  */
 @Composable
 fun ThreeBoxTimerTheme(
-    remainingMillis: Long = 0L,
+    remainingMillisProvider: () -> Long = { 0L },
     totalMillis: Long = 0L,
     status: TimerStatus = TimerStatus.Running,
     isStopwatch: Boolean = false,
-    stopwatchElapsedMillis: Long = 0L,
+    stopwatchElapsedMillisProvider: () -> Long = { 0L },
     stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier,
     layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
-    val digits = remember(remainingMillis, isStopwatch, stopwatchElapsedMillis) {
-        if (isStopwatch) {
-            ScoreboardDigitsHelper.extractElapsed(stopwatchElapsedMillis)
-        } else {
-            ScoreboardDigitsHelper.extract(remainingMillis)
+    // Optimization: Digits derived once per second to prevent unnecessary recomposition
+    val digits by remember(isStopwatch, if (isStopwatch) stopwatchElapsedMillisProvider else remainingMillisProvider) {
+        derivedStateOf {
+            val totalSeconds = if (isStopwatch) {
+                stopwatchElapsedMillisProvider() / 1000L
+            } else {
+                val rem = remainingMillisProvider()
+                if (rem <= 0L) 0L else (rem + 999L) / 1000L
+            }
+            if (isStopwatch) {
+                ScoreboardDigitsHelper.extractElapsed(totalSeconds * 1000L)
+            } else {
+                ScoreboardDigitsHelper.extract(totalSeconds * 1000L)
+            }
         }
     }
 
@@ -151,7 +166,7 @@ fun ThreeBoxTimerTheme(
             if (isStopwatch) {
                 // Centiseconds slot sits directly after the seconds panel, aligned to digit baseline
                 CentisecondsSlot(
-                    elapsedMillis = stopwatchElapsedMillis,
+                    elapsedMillisProvider = stopwatchElapsedMillisProvider,
                     fontSize = (dims.fontSize * 0.40f).sp,
                     fixedWidthDp = dims.centisSlotWidth.dp,
                     modifier = Modifier.padding(bottom = (dims.cellHeight * 0.08f).dp)
@@ -160,6 +175,30 @@ fun ThreeBoxTimerTheme(
         }
     }
 }
+
+/**
+ * Backward-compatible overload accepting direct Long values.
+ */
+@Composable
+fun ThreeBoxTimerTheme(
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
+) = ThreeBoxTimerTheme(
+    remainingMillisProvider = { remainingMillis },
+    totalMillis = totalMillis,
+    status = status,
+    isStopwatch = isStopwatch,
+    stopwatchElapsedMillisProvider = { stopwatchElapsedMillis },
+    stopwatchStatus = stopwatchStatus,
+    modifier = modifier,
+    layoutMode = layoutMode
+)
 
 @Composable
 private fun ScoreboardColon(panelHeight: Dp, fontSize: TextUnit, colonWidth: Dp) {

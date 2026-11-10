@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -38,41 +41,82 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
  * Theme 1: Circle.
  * Clean, minimal circular progress ring with centered monospaced countdown or stopwatch digits.
  * In Stopwatch mode: centiseconds sit on the same baseline directly next to the seconds.
+ *
+ * Performance optimizations:
+ * - Progress is calculated on-demand via a lambda passed into MinimalCircularProgress,
+ *   running strictly in the Canvas draw phase.
+ * - Digits are derived once per second via derivedStateOf, eliminating 60fps/100fps recomposition.
+ * - Centiseconds rendering is delegated to CentisecondsSlot in the draw phase.
  */
 @Composable
 fun CircleTimerTheme(
-    remainingMillis: Long = 0L,
+    remainingMillisProvider: () -> Long = { 0L },
     totalMillis: Long = 0L,
     status: TimerStatus = TimerStatus.Running,
     isStopwatch: Boolean = false,
-    stopwatchElapsedMillis: Long = 0L,
+    stopwatchElapsedMillisProvider: () -> Long = { 0L },
     stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier,
     layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
-    val progress = if (isStopwatch) {
-        StopwatchFractionCalculator.calculateCircleProgress(stopwatchElapsedMillis)
-    } else {
-        ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
-    }
-
     val isPaused = if (isStopwatch) {
         stopwatchStatus == StopwatchStatus.Paused
     } else {
         status == TimerStatus.Paused
     }
 
-    val formattedTime = if (isStopwatch) {
-        TimeUtils.formatStopwatchAdaptive(stopwatchElapsedMillis)
-    } else {
-        TimeUtils.formatHms(remainingMillis)
+    // Optimization: Progress provider is evaluated in the Canvas draw phase so the composable does not recompose
+    val progressProvider: () -> Float = remember(isStopwatch, totalMillis, remainingMillisProvider, stopwatchElapsedMillisProvider) {
+        {
+            if (isStopwatch) {
+                StopwatchFractionCalculator.calculateCircleProgress(stopwatchElapsedMillisProvider())
+            } else {
+                ThemeFractionCalculator.calculateOverallProgress(remainingMillisProvider(), totalMillis)
+            }
+        }
     }
 
-    val subText = if (isStopwatch) {
-        if (isPaused) "PAUSED" else "STOPWATCH"
-    } else {
-        val totalTimeFormatted = TimeUtils.formatHms(totalMillis)
-        if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted"
+    // Optimization: Digits derived once per second to prevent unnecessary recomposition on every frame
+    val displayedSeconds by remember(if (isStopwatch) stopwatchElapsedMillisProvider else remainingMillisProvider) {
+        derivedStateOf {
+            if (isStopwatch) {
+                stopwatchElapsedMillisProvider() / 1000L
+            } else {
+                val rem = remainingMillisProvider()
+                if (rem <= 0L) 0L else (rem + 999L) / 1000L
+            }
+        }
+    }
+
+    val formattedTime by remember(displayedSeconds, isStopwatch) {
+        derivedStateOf {
+            if (isStopwatch) {
+                TimeUtils.formatStopwatchAdaptive(displayedSeconds * 1000L)
+            } else {
+                TimeUtils.formatHmsFromSeconds(displayedSeconds)
+            }
+        }
+    }
+
+    val mainUnits by remember(displayedSeconds) {
+        derivedStateOf {
+            TimeUtils.formatStopwatchMainUnits(displayedSeconds * 1000L)
+        }
+    }
+
+    val hasHours by remember(displayedSeconds, isStopwatch) {
+        derivedStateOf {
+            isStopwatch && displayedSeconds >= 3600L
+        }
+    }
+
+    val subText = remember(isStopwatch, isPaused, totalMillis) {
+        if (isStopwatch) {
+            if (isPaused) "PAUSED" else "STOPWATCH"
+        } else {
+            val totalTimeFormatted = TimeUtils.formatHms(totalMillis)
+            if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted"
+        }
     }
 
     BoxWithConstraints(
@@ -82,7 +126,6 @@ fun CircleTimerTheme(
         val availableDiameter = minOf(maxWidth.value, maxHeight.value)
         val diameter = (availableDiameter - if (layoutMode == ThemeLayoutMode.PORTRAIT) 16f else 28f).coerceAtLeast(90f).dp
         val strokeWidth = (diameter.value * 0.015f).coerceIn(2.5f, 6.5f).dp
-        val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
         val innerRadius = (diameter.value - (strokeWidth.value * 2f)) / 2f
 
         val fontSize = CellSizeHelper.calculateInnerRingSafeFontSize(
@@ -93,7 +136,7 @@ fun CircleTimerTheme(
         ).sp
 
         MinimalCircularProgress(
-            progress = progress,
+            progressProvider = progressProvider,
             size = diameter,
             strokeWidth = strokeWidth,
             showLeadingDot = isStopwatch
@@ -103,7 +146,6 @@ fun CircleTimerTheme(
                 verticalArrangement = Arrangement.Center
             ) {
                 if (isStopwatch) {
-                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.Center
@@ -125,7 +167,7 @@ fun CircleTimerTheme(
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         CentisecondsSlot(
-                            elapsedMillis = stopwatchElapsedMillis,
+                            elapsedMillisProvider = stopwatchElapsedMillisProvider,
                             fontSize = (fontSize.value * 0.40f).sp,
                             modifier = Modifier.padding(bottom = (fontSize.value * 0.06f).dp)
                         )
@@ -164,6 +206,30 @@ fun CircleTimerTheme(
         }
     }
 }
+
+/**
+ * Backward-compatible overload accepting direct Long values.
+ */
+@Composable
+fun CircleTimerTheme(
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
+) = CircleTimerTheme(
+    remainingMillisProvider = { remainingMillis },
+    totalMillis = totalMillis,
+    status = status,
+    isStopwatch = isStopwatch,
+    stopwatchElapsedMillisProvider = { stopwatchElapsedMillis },
+    stopwatchStatus = stopwatchStatus,
+    modifier = modifier,
+    layoutMode = layoutMode
+)
 
 // -------------------------------------------------------------------------------------------------
 // PREVIEWS

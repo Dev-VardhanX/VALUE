@@ -80,8 +80,8 @@ fun FullscreenTimerScreen(
         label = "FullscreenTimerExitIconAlpha"
     )
 
-    // High performance frame clock for smooth 60fps visual updates
-    val liveRemainingMillis by rememberCountdownRemainingMillis(
+    // High performance frame clock; stored in State and provided as lambda to avoid recomposing the screen
+    val liveRemainingMillisState = rememberCountdownRemainingMillis(
         status = status,
         targetEndTime = targetEndTime,
         pausedRemainingMillis = pausedRemainingMillis
@@ -147,7 +147,7 @@ fun FullscreenTimerScreen(
         // Active visual scaled to the full viewport with safe minimal margins
         TimerVisual(
             theme = theme,
-            remainingMillis = liveRemainingMillis,
+            remainingMillisProvider = { liveRemainingMillisState.value },
             totalMillis = totalMillis,
             status = status,
             modifier = Modifier

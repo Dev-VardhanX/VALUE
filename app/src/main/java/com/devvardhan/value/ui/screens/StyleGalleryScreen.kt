@@ -41,16 +41,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -62,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.devvardhan.value.R
 import com.devvardhan.value.core.AdaptiveLayoutHelper
+import com.devvardhan.value.core.GalleryDemoClock
 import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.StopwatchStatus
@@ -73,11 +79,13 @@ import com.devvardhan.value.ui.components.SecondaryPillButton
 import com.devvardhan.value.ui.components.StopwatchVisual
 import com.devvardhan.value.ui.components.TimerVisual
 import com.devvardhan.value.ui.theme.BorderSubtle
+import com.devvardhan.value.ui.theme.Motion
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 import com.devvardhan.value.ui.util.debugTestTag
+import kotlinx.coroutines.isActive
 import kotlin.math.absoluteValue
 
 /**
@@ -115,25 +123,17 @@ fun StyleGalleryScreen(
         val availableWidth = maxWidth
         val isLandscape = availableWidth > availableHeight * 1.15f
 
+        val context = LocalContext.current
+        val isReducedMotion = remember(context) { Motion.isAnimationsDisabled(context) }
+
         if (isFirstLaunch) {
             AnimatedContent(
                 targetState = firstLaunchStep,
                 transitionSpec = {
-                    if (targetState > initialState) {
-                        (slideInHorizontally(animationSpec = tween(300)) { it } +
-                                fadeIn(animationSpec = tween(300)))
-                            .togetherWith(
-                                slideOutHorizontally(animationSpec = tween(300)) { -it } +
-                                        fadeOut(animationSpec = tween(300))
-                            )
-                    } else {
-                        (slideInHorizontally(animationSpec = tween(300)) { -it } +
-                                fadeIn(animationSpec = tween(300)))
-                            .togetherWith(
-                                slideOutHorizontally(animationSpec = tween(300)) { it } +
-                                        fadeOut(animationSpec = tween(300))
-                            )
-                    }
+                    Motion.galleryStepTransition(
+                        forward = targetState > initialState,
+                        isZeroDuration = isReducedMotion
+                    )
                 },
                 label = "FirstLaunchStepTransition",
                 modifier = Modifier.fillMaxSize()
@@ -212,6 +212,12 @@ private fun GalleryLayout(
         themes.indexOf(selectedTheme).coerceAtLeast(0)
     }
     val pagerState = rememberPagerState(initialPage = initialIndex) { themes.size }
+    val haptic = LocalHapticFeedback.current
+
+    // Tactile haptic tick when snapping to a style card
+    LaunchedEffect(pagerState.settledPage) {
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
 
     Column(
         modifier = Modifier
@@ -288,13 +294,43 @@ private fun GalleryLayout(
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            val metrics = remember(maxWidth, maxHeight, isLandscape) {
+            // Step 3: Compute target metrics, then smoothly animate dimensions on orientation changes
+            val targetMetrics = remember(maxWidth, maxHeight, isLandscape) {
                 computeCardMetrics(maxWidth, maxHeight, isLandscape)
             }
+            val animatedCardWidth by animateDpAsState(
+                targetValue = targetMetrics.cardWidth,
+                animationSpec = tween(durationMillis = 250),
+                label = "CardWidthAnimation"
+            )
+            val animatedCardHeight by animateDpAsState(
+                targetValue = targetMetrics.cardHeight,
+                animationSpec = tween(durationMillis = 250),
+                label = "CardHeightAnimation"
+            )
+            val animatedPreviewWidth by animateDpAsState(
+                targetValue = targetMetrics.previewWidth,
+                animationSpec = tween(durationMillis = 250),
+                label = "PreviewWidthAnimation"
+            )
+            val animatedPreviewHeight by animateDpAsState(
+                targetValue = targetMetrics.previewHeight,
+                animationSpec = tween(durationMillis = 250),
+                label = "PreviewHeightAnimation"
+            )
+
+            val metrics = targetMetrics.copy(
+                cardWidth = animatedCardWidth,
+                cardHeight = animatedCardHeight,
+                previewWidth = animatedPreviewWidth,
+                previewHeight = animatedPreviewHeight
+            )
             val sidePadding = ((maxWidth - metrics.cardWidth) / 2).coerceAtLeast(0.dp)
 
+            // Step 2: Key pager items by stable theme name to avoid unnecessary item recreations
             HorizontalPager(
                 state = pagerState,
+                key = { themes[it].name },
                 contentPadding = PaddingValues(horizontal = sidePadding),
                 pageSize = PageSize.Fixed(metrics.cardWidth),
                 pageSpacing = 16.dp,
@@ -311,6 +347,13 @@ private fun GalleryLayout(
                 val themeItem = themes[page]
                 val isSelected = themeItem == selectedTheme
 
+                // Step 2: Freeze preview animations while scrolling; activate only when page is settled
+                val isActive by remember(page) {
+                    derivedStateOf {
+                        pagerState.settledPage == page && !pagerState.isScrollInProgress
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -323,6 +366,8 @@ private fun GalleryLayout(
                             scaleX = s
                             scaleY = s
                             alpha = lerp(1f, 0.6f, offset)
+                            // Step 2: Use ModulateAlpha to eliminate offscreen buffer allocations
+                            compositingStrategy = CompositingStrategy.ModulateAlpha
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -330,7 +375,7 @@ private fun GalleryLayout(
                         theme = themeItem,
                         mode = mode,
                         isSelected = isSelected,
-                        isAnimated = pagerState.currentPage == page,
+                        isAnimated = isActive,
                         isLandscape = isLandscape,
                         metrics = metrics,
                         onSelect = {
@@ -349,26 +394,38 @@ private fun GalleryLayout(
             verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(themes.size) { index ->
-                val isCurrent = pagerState.currentPage == index
-                val dotSize by animateDpAsState(
-                    targetValue = if (isCurrent) 8.dp else 6.dp,
-                    animationSpec = tween(150),
-                    label = "DotSize"
-                )
-                val dotColor by animateColorAsState(
-                    targetValue = if (isCurrent) PureWhite else Color(0xFF333333),
-                    animationSpec = tween(150),
-                    label = "DotColor"
-                )
-                Box(
-                    modifier = Modifier
-                        .size(dotSize)
-                        .clip(CircleShape)
-                        .background(dotColor)
-                )
+                val isCurrent by remember(index) {
+                    derivedStateOf { pagerState.currentPage == index }
+                }
+                GalleryPageDot(isSelected = isCurrent)
             }
         }
     }
+}
+
+/**
+ * Isolated indicator dot composable to prevent recompilation of the entire gallery layout on page change.
+ */
+@Composable
+private fun GalleryPageDot(
+    isSelected: Boolean
+) {
+    val dotSize by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 6.dp,
+        animationSpec = tween(150),
+        label = "DotSize"
+    )
+    val dotColor by animateColorAsState(
+        targetValue = if (isSelected) PureWhite else Color(0xFF333333),
+        animationSpec = tween(150),
+        label = "DotColor"
+    )
+    Box(
+        modifier = Modifier
+            .size(dotSize)
+            .clip(CircleShape)
+            .background(dotColor)
+    )
 }
 
 @Composable
@@ -596,8 +653,9 @@ private fun StylePreviewCard(
 }
 
 /**
- * Owns the per-frame animation state, so only this composable recomposes each frame
- * (not the title, buttons or borders).
+ * Drives every preview from ONE deterministic demo clock.
+ * Restarts from zero whenever a card becomes the settled page and when gallery opens.
+ * Non-settled cards show the static starting frame (10s full / 00:00:00).
  */
 @Composable
 private fun LivePreview(
@@ -606,48 +664,69 @@ private fun LivePreview(
     isAnimated: Boolean
 ) {
     val isStopwatchMode = mode == AppMode.STOPWATCH
-    val hasMultiUnitDemo = theme == TimerTheme.THREE_BOX ||
-            theme == TimerTheme.FLIP_CLOCK ||
-            theme == TimerTheme.CONCENTRIC_RINGS
-    val totalDemoDuration = if (hasMultiUnitDemo && !isStopwatchMode) 75_420_000L else 10_000L
+    val totalDemoDuration = GalleryDemoClock.DEMO_ACTIVE_MILLIS
+    val isStopwatchState = rememberUpdatedState(isStopwatchMode)
+    val isAnimatedState = rememberUpdatedState(isAnimated)
 
-    // Accumulated animation time; survives pause/resume so it never jumps back to 0
-    var phaseNanos by remember { mutableLongStateOf(0L) }
+    // Elapsed demo time; strictly resets to 0 whenever isAnimated becomes true
+    val phaseNanosState = remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(isAnimated) {
-        if (!isAnimated) return@LaunchedEffect
-        var last = withFrameNanos { it }
-        while (true) {
+        if (!isAnimated) {
+            phaseNanosState.longValue = 0L
+            return@LaunchedEffect
+        }
+        phaseNanosState.longValue = 0L
+        val startNanos = withFrameNanos { it }
+        while (isActive) {
             withFrameNanos { now ->
-                phaseNanos += now - last
-                last = now
+                phaseNanosState.longValue = now - startNanos
             }
         }
     }
 
-    val elapsed = (phaseNanos / 1_000_000L) % 10_000L
-    val demoMillis = when {
-        hasMultiUnitDemo && isStopwatchMode -> 3_665_000L + elapsed
-        hasMultiUnitDemo -> 37_240_000L - elapsed
-        isStopwatchMode -> 3_500L + elapsed
-        else -> 10_000L - elapsed
+    val demoMillisProvider: () -> Long = remember {
+        {
+            if (!isAnimatedState.value) {
+                if (isStopwatchState.value) 0L else totalDemoDuration
+            } else {
+                val elapsedMs = phaseNanosState.longValue / 1_000_000L
+                if (isStopwatchState.value) {
+                    GalleryDemoClock.calculateStopwatchElapsed(elapsedMs)
+                } else {
+                    GalleryDemoClock.calculateTimerRemaining(elapsedMs)
+                }
+            }
+        }
     }
 
-    if (isStopwatchMode) {
-        StopwatchVisual(
-            theme = theme,
-            elapsedMillis = demoMillis,
-            status = if (isAnimated) StopwatchStatus.Running else StopwatchStatus.Paused,
-            layoutMode = ThemeLayoutMode.PORTRAIT
-        )
-    } else {
-        TimerVisual(
-            theme = theme,
-            remainingMillis = demoMillis,
-            totalMillis = totalDemoDuration,
-            status = if (isAnimated) TimerStatus.Running else TimerStatus.Paused,
-            layoutMode = ThemeLayoutMode.PORTRAIT
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                if (isAnimatedState.value) {
+                    val elapsedMs = phaseNanosState.longValue / 1_000_000L
+                    alpha = GalleryDemoClock.calculateLoopAlpha(elapsedMs)
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        if (isStopwatchMode) {
+            StopwatchVisual(
+                theme = theme,
+                elapsedMillisProvider = demoMillisProvider,
+                status = if (isAnimated) StopwatchStatus.Running else StopwatchStatus.Paused,
+                layoutMode = ThemeLayoutMode.PORTRAIT
+            )
+        } else {
+            TimerVisual(
+                theme = theme,
+                remainingMillisProvider = demoMillisProvider,
+                totalMillis = totalDemoDuration,
+                status = if (isAnimated) TimerStatus.Running else TimerStatus.Paused,
+                layoutMode = ThemeLayoutMode.PORTRAIT
+            )
+        }
     }
 }
 

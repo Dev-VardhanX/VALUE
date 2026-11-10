@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,60 +48,61 @@ import com.devvardhan.value.ui.theme.ValueTimerTheme
  * Outer = Hours, Middle = Minutes, Inner = Seconds.
  * In Stopwatch mode: all rings fill UP clockwise. Zero sweep threshold prevents false round-cap dots at 0.
  * Centiseconds sit on the same baseline directly next to the seconds.
+ *
+ * Performance optimizations:
+ * - Ring fraction and sweep calculations moved strictly inside the Canvas draw phase.
+ * - Digits derived once per second via derivedStateOf, eliminating 60fps recomposition.
+ * - Centiseconds rendering handled in draw phase by CentisecondsSlot.
  */
 @Composable
 fun ConcentricRingsTimerTheme(
-    remainingMillis: Long = 0L,
+    remainingMillisProvider: () -> Long = { 0L },
     totalMillis: Long = 0L,
     status: TimerStatus = TimerStatus.Running,
     isStopwatch: Boolean = false,
-    stopwatchElapsedMillis: Long = 0L,
+    stopwatchElapsedMillisProvider: () -> Long = { 0L },
     stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
     modifier: Modifier = Modifier,
     layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
-    val secFraction = if (isStopwatch) {
-        StopwatchFractionCalculator.calculateSecondsFraction(stopwatchElapsedMillis)
+    val isPaused = if (isStopwatch) {
+        stopwatchStatus == StopwatchStatus.Paused
     } else {
-        ThemeFractionCalculator.calculateSecondsFraction(remainingMillis)
+        status == TimerStatus.Paused
     }
 
-    val minFraction = if (isStopwatch) {
-        StopwatchFractionCalculator.calculateMinutesFraction(stopwatchElapsedMillis)
-    } else {
-        ThemeFractionCalculator.calculateMinutesFraction(remainingMillis)
-    }
-
-    val hrFraction = if (isStopwatch) {
-        StopwatchFractionCalculator.calculateHoursFraction(stopwatchElapsedMillis)
-    } else {
-        ThemeFractionCalculator.calculateHoursFraction(remainingMillis, totalMillis)
-    }
-
-    val displayedSeconds by remember(if (isStopwatch) stopwatchElapsedMillis else remainingMillis) {
+    // Optimization: Digits derived once per second to prevent unnecessary recomposition
+    val displayedSeconds by remember(if (isStopwatch) stopwatchElapsedMillisProvider else remainingMillisProvider) {
         derivedStateOf {
             if (isStopwatch) {
-                stopwatchElapsedMillis / 1000L
+                stopwatchElapsedMillisProvider() / 1000L
             } else {
-                if (remainingMillis <= 0L) 0L else (remainingMillis + 999L) / 1000L
+                val rem = remainingMillisProvider()
+                if (rem <= 0L) 0L else (rem + 999L) / 1000L
             }
         }
     }
 
-    val formattedTime by remember(displayedSeconds, isStopwatch, stopwatchElapsedMillis) {
+    val formattedTime by remember(displayedSeconds, isStopwatch) {
         derivedStateOf {
             if (isStopwatch) {
-                TimeUtils.formatStopwatchAdaptive(stopwatchElapsedMillis)
+                TimeUtils.formatStopwatchAdaptive(displayedSeconds * 1000L)
             } else {
                 TimeUtils.formatHmsFromSeconds(displayedSeconds)
             }
         }
     }
 
-    val isPaused = if (isStopwatch) {
-        stopwatchStatus == StopwatchStatus.Paused
-    } else {
-        status == TimerStatus.Paused
+    val mainUnits by remember(displayedSeconds) {
+        derivedStateOf {
+            TimeUtils.formatStopwatchMainUnits(displayedSeconds * 1000L)
+        }
+    }
+
+    val hasHours by remember(displayedSeconds, isStopwatch) {
+        derivedStateOf {
+            isStopwatch && displayedSeconds >= 3600L
+        }
     }
 
     BoxWithConstraints(
@@ -121,14 +121,9 @@ fun ConcentricRingsTimerTheme(
         val diameter = geometry.diameter.dp
         val strokeWidth = geometry.strokeWidth.dp
         val ringGap = geometry.ringGap.dp
-        val hasHours = isStopwatch && stopwatchElapsedMillis >= 3_600_000L
         val rawInnerRadius = geometry.innerDiameter / 2f
-        // Stroke is centered on the arc, so the actual clear inner radius inside the stroke is:
         val clearInnerRadius = (rawInnerRadius - (geometry.strokeWidth / 2f)).coerceAtLeast(10f)
 
-        // In compact views (clearInnerRadius < 52f, such as style gallery preview cards),
-        // suppress the 14-char TOTAL subtext so the main time digits remain large, clear,
-        // and never touch or cross the inner ring. Show PAUSED if paused, or show TOTAL on main screens.
         val showSubText = isPaused || (!isStopwatch && clearInnerRadius >= 52f)
         val hasLabel = showSubText
 
@@ -146,6 +141,24 @@ fun ConcentricRingsTimerTheme(
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
+                // Optimization: Fraction calculations executed in the draw phase, avoiding recomposition
+                val ms = if (isStopwatch) stopwatchElapsedMillisProvider() else remainingMillisProvider()
+                val hrFraction = if (isStopwatch) {
+                    StopwatchFractionCalculator.calculateHoursFraction(ms)
+                } else {
+                    ThemeFractionCalculator.calculateHoursFraction(ms, totalMillis)
+                }
+                val minFraction = if (isStopwatch) {
+                    StopwatchFractionCalculator.calculateMinutesFraction(ms)
+                } else {
+                    ThemeFractionCalculator.calculateMinutesFraction(ms)
+                }
+                val secFraction = if (isStopwatch) {
+                    StopwatchFractionCalculator.calculateSecondsFraction(ms)
+                } else {
+                    ThemeFractionCalculator.calculateSecondsFraction(ms)
+                }
+
                 val center = Offset(size.width / 2f, size.height / 2f)
                 val strokePx = strokeWidth.toPx()
                 val gapPx = ringGap.toPx()
@@ -168,7 +181,6 @@ fun ConcentricRingsTimerTheme(
                         style = Stroke(width = strokePx)
                     )
                     val hrSweep = hrFraction * 360f
-                    // Minimum sweep threshold: do not draw round-cap dot at 0
                     if (hrSweep >= 1.0f) {
                         drawArc(
                             color = PureWhite,
@@ -196,7 +208,6 @@ fun ConcentricRingsTimerTheme(
                         style = Stroke(width = strokePx)
                     )
                     val minSweep = minFraction * 360f
-                    // Minimum sweep threshold: do not draw round-cap dot at 0
                     if (minSweep >= 1.0f) {
                         drawArc(
                             color = PureWhite,
@@ -224,7 +235,6 @@ fun ConcentricRingsTimerTheme(
                         style = Stroke(width = strokePx)
                     )
                     val secSweep = secFraction * 360f
-                    // Minimum sweep threshold: do not draw round-cap dot at 0
                     if (secSweep >= 1.0f) {
                         drawArc(
                             color = PureWhite,
@@ -245,7 +255,6 @@ fun ConcentricRingsTimerTheme(
                 verticalArrangement = Arrangement.Center
             ) {
                 if (isStopwatch) {
-                    val mainUnits = TimeUtils.formatStopwatchMainUnits(stopwatchElapsedMillis)
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.Center
@@ -267,24 +276,9 @@ fun ConcentricRingsTimerTheme(
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         CentisecondsSlot(
-                            elapsedMillis = stopwatchElapsedMillis,
+                            elapsedMillisProvider = stopwatchElapsedMillisProvider,
                             fontSize = (fontSize.value * 0.40f).sp,
                             modifier = Modifier.padding(bottom = (fontSize.value * 0.06f).dp)
-                        )
-                    }
-
-                    if (isPaused) {
-                        val spacerHeight = (clearInnerRadius * 0.08f).coerceIn(3f, 8f).dp
-                        Spacer(modifier = Modifier.height(spacerHeight))
-                        Text(
-                            text = "PAUSED",
-                            fontSize = (fontSize.value * 0.28f).coerceIn(8f, 13f).sp,
-                            fontWeight = FontWeight.Medium,
-                            color = SubtleGray,
-                            letterSpacing = 1.5.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
                         )
                     }
                 } else {
@@ -303,27 +297,49 @@ fun ConcentricRingsTimerTheme(
                         maxLines = 1,
                         softWrap = false
                     )
+                }
 
-                    if (showSubText) {
-                        val spacerHeight = (clearInnerRadius * 0.08f).coerceIn(3f, 8f).dp
-                        Spacer(modifier = Modifier.height(spacerHeight))
-                        val subText = if (isPaused) "PAUSED" else "TOTAL ${TimeUtils.formatHms(totalMillis)}"
-                        Text(
-                            text = subText,
-                            fontSize = (fontSize.value * 0.28f).coerceIn(8f, 13f).sp,
-                            fontWeight = FontWeight.Medium,
-                            color = SubtleGray,
-                            letterSpacing = 1.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
-                        )
-                    }
+                if (showSubText) {
+                    val subText = if (isPaused) "PAUSED" else "TOTAL ${TimeUtils.formatHms(totalMillis)}"
+                    Text(
+                        text = subText,
+                        fontSize = (fontSize.value * 0.22f).coerceIn(8f, 13f).sp,
+                        fontWeight = FontWeight.Medium,
+                        color = SubtleGray,
+                        letterSpacing = 1.5.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.padding(top = (fontSize.value * 0.08f).dp)
+                    )
                 }
             }
         }
     }
 }
+
+/**
+ * Backward-compatible overload accepting direct Long values.
+ */
+@Composable
+fun ConcentricRingsTimerTheme(
+    remainingMillis: Long = 0L,
+    totalMillis: Long = 0L,
+    status: TimerStatus = TimerStatus.Running,
+    isStopwatch: Boolean = false,
+    stopwatchElapsedMillis: Long = 0L,
+    stopwatchStatus: StopwatchStatus = StopwatchStatus.Running,
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
+) = ConcentricRingsTimerTheme(
+    remainingMillisProvider = { remainingMillis },
+    totalMillis = totalMillis,
+    status = status,
+    isStopwatch = isStopwatch,
+    stopwatchElapsedMillisProvider = { stopwatchElapsedMillis },
+    stopwatchStatus = stopwatchStatus,
+    modifier = modifier,
+    layoutMode = layoutMode
+)
 
 // -------------------------------------------------------------------------------------------------
 // PREVIEWS
@@ -341,14 +357,14 @@ private fun ConcentricStopwatch360Preview() {
     }
 }
 
-@Preview(name = "Concentric Stopwatch Portrait", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
+@Preview(name = "Concentric Rings Paused", showBackground = true, backgroundColor = 0xFF000000, widthDp = 390, heightDp = 844)
 @Composable
-private fun ConcentricStopwatchPortraitPreview() {
+private fun ConcentricRingsPausedPreview() {
     ValueTimerTheme {
         ConcentricRingsTimerTheme(
-            isStopwatch = true,
-            stopwatchElapsedMillis = 145230L,
-            stopwatchStatus = StopwatchStatus.Running
+            remainingMillis = 45000L,
+            totalMillis = 120000L,
+            status = TimerStatus.Paused
         )
     }
 }

@@ -9,13 +9,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,7 +33,6 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
-import kotlinx.coroutines.isActive
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -45,23 +40,27 @@ import kotlin.math.sin
  * Theme 6: Liquid Fill.
  * Wide rounded container in landscape, tall in portrait, whose liquid level exactly equals remaining/total
  * from the very first frame without delays or artificial intro transitions.
- * Features an animated sinusoidal wave that freezes instantly when paused and resumes seamlessly.
+ * Features an animated sinusoidal wave driven deterministically from elapsed remaining time.
+ *
+ * Performance optimizations:
+ * - Liquid progress, wave phase, and wave clipping are calculated inside drawWithContent (draw phase).
+ * - Digits are derived once per second via derivedStateOf, avoiding per-frame recomposition.
  */
 @Composable
 fun LiquidFillTimerTheme(
-    remainingMillis: Long,
+    remainingMillisProvider: () -> Long,
     totalMillis: Long,
     status: TimerStatus,
     modifier: Modifier = Modifier,
     layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
-    // Exact mathematical progress from frame 0 (no animate-in delay)
-    val progress = ThemeFractionCalculator.calculateOverallProgress(remainingMillis, totalMillis)
-    val isRunning = status == TimerStatus.Running && remainingMillis > 0L
+    val isRunning = status == TimerStatus.Running
 
-    val displayedSeconds by remember(remainingMillis) {
+    // Optimization: Digits derived once per second to prevent unnecessary recomposition
+    val displayedSeconds by remember(remainingMillisProvider) {
         derivedStateOf {
-            if (remainingMillis <= 0L) 0L else (remainingMillis + 999L) / 1000L
+            val rem = remainingMillisProvider()
+            if (rem <= 0L) 0L else (rem + 999L) / 1000L
         }
     }
     val formattedTime by remember(displayedSeconds) {
@@ -72,24 +71,6 @@ fun LiquidFillTimerTheme(
 
     // Preallocated Path to prevent object creation per draw pass
     val liquidPath = remember { Path() }
-
-    // Wave phase animation: advances continuously while running, FREEZES in place when paused,
-    // and resumes instantly from the exact frozen phase without snapping to 0.
-    var wavePhase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(isRunning) {
-        if (isRunning) {
-            var lastFrameTime = withFrameNanos { it }
-            while (isActive) {
-                withFrameNanos { frameTime ->
-                    val dtSeconds = (frameTime - lastFrameTime) / 1_000_000_000f
-                    lastFrameTime = frameTime
-                    // 1 full cycle every 2.4 seconds
-                    val speed = (2f * PI.toFloat()) / 2.4f
-                    wavePhase = (wavePhase + speed * dtSeconds) % (2f * PI.toFloat())
-                }
-            }
-        }
-    }
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -135,16 +116,25 @@ fun LiquidFillTimerTheme(
             }
 
             // Layer 2: White liquid fill with animated sinusoidal wave & inverted black digits
-            if (progress > 0.0005f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .drawWithContent {
+            // Optimization: progress and wave path evaluated in drawWithContent without recomposition
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        val rem = remainingMillisProvider()
+                        val progress = ThemeFractionCalculator.calculateOverallProgress(rem, totalMillis)
+                        if (progress > 0.0005f) {
                             val w = size.width
                             val h = size.height
                             val baseSurfaceY = h * (1f - progress)
-                            val amplitude = if (progress in 0.02f..0.98f) 7.dp.toPx() else 0f
+                            val amplitude = if (isRunning && progress in 0.02f..0.98f) 7.dp.toPx() else 0f
                             val waveLength = w * 0.65f
+                            val elapsedSeconds = (totalMillis - rem).coerceAtLeast(0L) / 1000f
+                            val wavePhase = if (isRunning) {
+                                (elapsedSeconds * (2f * PI.toFloat() / 2.4f)) % (2f * PI.toFloat())
+                            } else {
+                                0f
+                            }
 
                             liquidPath.reset()
                             liquidPath.moveTo(0f, h)
@@ -166,21 +156,39 @@ fun LiquidFillTimerTheme(
                                 drawRect(color = PureWhite)
                                 this@drawWithContent.drawContent()
                             }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = formattedTime,
-                        color = PureBlack,
-                        maxLines = 1,
-                        softWrap = false,
-                        style = textStyle
-                    )
-                }
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = formattedTime,
+                    color = PureBlack,
+                    maxLines = 1,
+                    softWrap = false,
+                    style = textStyle
+                )
             }
         }
     }
 }
+
+/**
+ * Backward-compatible overload accepting a direct Long value.
+ */
+@Composable
+fun LiquidFillTimerTheme(
+    remainingMillis: Long,
+    totalMillis: Long,
+    status: TimerStatus,
+    modifier: Modifier = Modifier,
+    layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
+) = LiquidFillTimerTheme(
+    remainingMillisProvider = { remainingMillis },
+    totalMillis = totalMillis,
+    status = status,
+    modifier = modifier,
+    layoutMode = layoutMode
+)
 
 // -------------------------------------------------------------------------------------------------
 // PREVIEWS

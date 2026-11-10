@@ -1,6 +1,7 @@
 package com.devvardhan.value
 
 import android.Manifest
+import android.animation.ObjectAnimator
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -8,7 +9,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,9 +23,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -50,13 +50,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.BackAction
 import com.devvardhan.value.core.BackPressHandlerLogic
+import com.devvardhan.value.core.StartupDestination
+import com.devvardhan.value.core.StartupResolver
+import com.devvardhan.value.core.StartupState
 import com.devvardhan.value.core.StopwatchPreferencesRepository
+import com.devvardhan.value.core.TimerPreferencesRepository
+import com.devvardhan.value.core.loadStartupState
 import com.devvardhan.value.model.AlarmSound
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.StopwatchStatus
@@ -72,13 +79,13 @@ import com.devvardhan.value.ui.screens.SoundScreen
 import com.devvardhan.value.ui.screens.StopwatchScreen
 import com.devvardhan.value.ui.screens.StyleGalleryScreen
 import com.devvardhan.value.ui.theme.BorderSubtle
+import com.devvardhan.value.ui.theme.Motion
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 import com.devvardhan.value.ui.util.rootTestTagsAsResourceId
 import com.devvardhan.value.viewmodel.StopwatchViewModel
 import com.devvardhan.value.viewmodel.TimerViewModel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 enum class AppScreen {
@@ -88,19 +95,54 @@ enum class AppScreen {
     SOUND
 }
 
+private fun getScreenLevel(screen: AppScreen): Int = when (screen) {
+    AppScreen.MAIN -> 0
+    AppScreen.SETTINGS -> 1
+    AppScreen.GALLERY, AppScreen.SOUND -> 2
+}
+
 class MainActivity : ComponentActivity() {
 
     private var initialTargetMode: String? = null
+    private var startupState by mutableStateOf<StartupState>(StartupState.Loading)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         initialTargetMode = intent?.getStringExtra(StopwatchService.EXTRA_TARGET_MODE)
 
+        splashScreen.setKeepOnScreenCondition {
+            startupState !is StartupState.Ready
+        }
+
+        splashScreen.setOnExitAnimationListener { splashScreenViewProvider ->
+            val view = splashScreenViewProvider.view
+            val fadeOut = ObjectAnimator.ofFloat(view, View.ALPHA, 1f, 0f).apply {
+                interpolator = AccelerateDecelerateInterpolator()
+                duration = 200L
+                doOnEnd { splashScreenViewProvider.remove() }
+            }
+            fadeOut.start()
+        }
+
+        lifecycleScope.launch {
+            val timerRepo = TimerPreferencesRepository(applicationContext)
+            val swRepo = StopwatchPreferencesRepository(applicationContext)
+            startupState = loadStartupState(
+                timerPrefs = timerRepo,
+                stopwatchPrefs = swRepo,
+                intentTargetMode = initialTargetMode
+            )
+        }
+
         setContent {
             ValueTimerTheme {
-                ValueApp(initialMode = initialTargetMode)
+                ValueApp(
+                    startupState = startupState,
+                    initialMode = initialTargetMode
+                )
             }
         }
     }
@@ -117,35 +159,52 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ValueApp(
+    startupState: StartupState = StartupResolver.defaultFallback,
     initialMode: String? = null,
     timerViewModel: TimerViewModel = viewModel(),
     stopwatchViewModel: StopwatchViewModel = viewModel()
 ) {
+    // Pure black during splash hold - NO Timer UI composed or flashed
+    if (startupState !is StartupState.Ready) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PureBlack)
+                .rootTestTagsAsResourceId(),
+            color = PureBlack
+        ) {}
+        return
+    }
+
+    val readyState = startupState
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val preferencesRepo = remember { StopwatchPreferencesRepository(context) }
+    val isReducedMotion = remember(context) { Motion.isAnimationsDisabled(context) }
 
-    var appMode by remember {
-        mutableStateOf(
-            if (initialMode == "STOPWATCH") AppMode.STOPWATCH else AppMode.TIMER
-        )
+    val initialScreen = remember(readyState) {
+        when (readyState.destination) {
+            is StartupDestination.FirstLaunch -> AppScreen.GALLERY
+            is StartupDestination.Main -> AppScreen.MAIN
+        }
     }
-
-    // Restore persistent AppMode on launch
-    LaunchedEffect(Unit) {
-        if (initialMode == null) {
-            try {
-                appMode = preferencesRepo.appModeFlow.first()
-            } catch (e: Exception) {
-                appMode = AppMode.TIMER
-            }
+    val initialStep = remember(readyState) {
+        when (val d = readyState.destination) {
+            is StartupDestination.FirstLaunch -> d.step
+            is StartupDestination.Main -> 1
         }
     }
 
+    var currentScreen by rememberSaveable { mutableStateOf(initialScreen) }
+    var firstLaunchStep by rememberSaveable { mutableIntStateOf(initialStep) }
+    var appMode by rememberSaveable { mutableStateOf(readyState.initialAppMode) }
+
     val timerState by timerViewModel.uiState.collectAsStateWithLifecycle()
     val stopwatchState by stopwatchViewModel.uiState.collectAsStateWithLifecycle()
-    val hasChosenStyle by timerViewModel.hasChosenStyleFlow.collectAsStateWithLifecycle(initialValue = null)
-    val onboardingStep by timerViewModel.onboardingStepFlow.collectAsStateWithLifecycle(initialValue = 1)
+    val hasChosenStyle by timerViewModel.hasChosenStyleFlow.collectAsStateWithLifecycle(
+        initialValue = readyState.destination !is StartupDestination.FirstLaunch
+    )
+    val onboardingStep by timerViewModel.onboardingStepFlow.collectAsStateWithLifecycle(initialValue = initialStep)
 
     val vibrationEnabled by timerViewModel.vibrationEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     val gradualVolumeEnabled by timerViewModel.gradualVolumeEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
@@ -156,13 +215,11 @@ fun ValueApp(
     val isTimerRunning = timerState.status == TimerStatus.Running
     val isStopwatchRunning = stopwatchState.status == StopwatchStatus.Running
 
-    // Navigation state across screens
-    var currentScreen by rememberSaveable { mutableStateOf<AppScreen?>(null) }
-    var firstLaunchStep by rememberSaveable { mutableIntStateOf(1) }
+    // Navigation state across sub-pages
     var galleryTargetMode by rememberSaveable { mutableStateOf(AppMode.TIMER) }
     var settingsSourceMode by rememberSaveable { mutableStateOf(AppMode.TIMER) }
 
-    // Synchronize step with persistent onboarding progress (e.g. resumes at Step 2 after process death)
+    // Synchronize step with persistent onboarding progress
     LaunchedEffect(onboardingStep) {
         firstLaunchStep = onboardingStep
     }
@@ -235,18 +292,6 @@ fun ValueApp(
         }
     }
 
-    // First-launch determination: auto-open gallery on very first launch unless something is running
-    LaunchedEffect(hasChosenStyle, isTimerRunning, isStopwatchRunning) {
-        if (currentScreen == null && hasChosenStyle != null) {
-            val shouldShowGallery = AdaptiveLayoutHelper.shouldShowGalleryAtLaunch(
-                hasChosenStyle = hasChosenStyle == true,
-                isTimerRunning = isTimerRunning,
-                isStopwatchRunning = isStopwatchRunning
-            )
-            currentScreen = if (shouldShowGallery) AppScreen.GALLERY else AppScreen.MAIN
-        }
-    }
-
     // Request notification permission gracefully on Android 13+ (API 33+)
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -286,7 +331,6 @@ fun ValueApp(
         color = PureBlack
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Mode switching handler (persists mode without touching running state)
             val onModeChange: (AppMode) -> Unit = { newMode ->
                 appMode = newMode
                 scope.launch {
@@ -295,9 +339,10 @@ fun ValueApp(
             }
 
             AnimatedContent(
-                targetState = currentScreen ?: AppScreen.MAIN,
+                targetState = currentScreen,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(280)) togetherWith fadeOut(animationSpec = tween(220))
+                    val forward = getScreenLevel(targetState) >= getScreenLevel(initialState)
+                    Motion.screenTransition(forward = forward, isZeroDuration = isReducedMotion)
                 },
                 label = "ScreenTransition",
                 modifier = Modifier.fillMaxSize()
@@ -356,12 +401,8 @@ fun ValueApp(
                             onOpenSoundSettings = {
                                 currentScreen = AppScreen.SOUND
                             },
-                            onVibrationToggle = { enabled ->
-                                timerViewModel.setVibrationEnabled(enabled)
-                            },
-                            onGradualVolumeToggle = { enabled ->
-                                timerViewModel.setGradualVolumeEnabled(enabled)
-                            },
+                            onVibrationToggle = { timerViewModel.setVibrationEnabled(it) },
+                            onGradualVolumeToggle = { timerViewModel.setGradualVolumeEnabled(it) },
                             onBack = {
                                 appMode = settingsSourceMode
                                 currentScreen = AppScreen.MAIN
@@ -386,124 +427,130 @@ fun ValueApp(
                     }
 
                     AppScreen.MAIN -> {
-                        if (appMode == AppMode.STOPWATCH) {
-                            if (stopwatchState.isFullscreen) {
-                                FullscreenStopwatchScreen(
-                                    theme = stopwatchState.theme,
-                                    status = stopwatchState.status,
-                                    startTime = stopwatchState.startTime,
-                                    accumulatedMillis = stopwatchState.accumulatedMillis,
-                                    lapsCount = stopwatchState.laps.size,
-                                    onStartClick = { stopwatchViewModel.start() },
-                                    onPauseClick = { stopwatchViewModel.pause() },
-                                    onResumeClick = { stopwatchViewModel.resume() },
-                                    onLapClick = { stopwatchViewModel.lap() },
-                                    onResetClick = { stopwatchViewModel.reset() },
-                                    onExitFullscreen = { stopwatchViewModel.setFullscreen(false) },
-                                    lastLapTotalMillis = stopwatchState.laps.firstOrNull()?.totalTimeMillis ?: 0L
-                                )
+                        AnimatedContent(
+                            targetState = appMode,
+                            transitionSpec = {
+                                Motion.modeSwitchTransition(isZeroDuration = isReducedMotion)
+                            },
+                            label = "AppModeTransition",
+                            modifier = Modifier.fillMaxSize()
+                        ) { currentAppMode ->
+                            if (currentAppMode == AppMode.STOPWATCH) {
+                                if (stopwatchState.isFullscreen) {
+                                    FullscreenStopwatchScreen(
+                                        theme = stopwatchState.theme,
+                                        status = stopwatchState.status,
+                                        startTime = stopwatchState.startTime,
+                                        accumulatedMillis = stopwatchState.accumulatedMillis,
+                                        lapsCount = stopwatchState.laps.size,
+                                        onStartClick = { stopwatchViewModel.start() },
+                                        onPauseClick = { stopwatchViewModel.pause() },
+                                        onResumeClick = { stopwatchViewModel.resume() },
+                                        onLapClick = { stopwatchViewModel.lap() },
+                                        onResetClick = { stopwatchViewModel.reset() },
+                                        onExitFullscreen = { stopwatchViewModel.setFullscreen(false) },
+                                        lastLapTotalMillis = stopwatchState.laps.firstOrNull()?.totalTimeMillis ?: 0L
+                                    )
+                                } else {
+                                    StopwatchScreen(
+                                        status = stopwatchState.status,
+                                        startTime = stopwatchState.startTime,
+                                        accumulatedMillis = stopwatchState.accumulatedMillis,
+                                        laps = stopwatchState.laps,
+                                        theme = stopwatchState.theme,
+                                        currentMode = appMode,
+                                        isTimerRunning = isTimerRunning,
+                                        onModeSelected = onModeChange,
+                                        onOpenSettings = {
+                                            settingsSourceMode = AppMode.STOPWATCH
+                                            currentScreen = AppScreen.SETTINGS
+                                        },
+                                        onStartClick = { stopwatchViewModel.start() },
+                                        onPauseClick = { stopwatchViewModel.pause() },
+                                        onResumeClick = { stopwatchViewModel.resume() },
+                                        onLapClick = { stopwatchViewModel.lap() },
+                                        onResetClick = { stopwatchViewModel.reset() },
+                                        onFullscreenClick = { stopwatchViewModel.setFullscreen(true) }
+                                    )
+                                }
                             } else {
-                                StopwatchScreen(
-                                    status = stopwatchState.status,
-                                    startTime = stopwatchState.startTime,
-                                    accumulatedMillis = stopwatchState.accumulatedMillis,
-                                    laps = stopwatchState.laps,
-                                    theme = stopwatchState.theme,
-                                    currentMode = appMode,
-                                    isTimerRunning = isTimerRunning,
-                                    onModeSelected = onModeChange,
-                                    onOpenSettings = {
-                                        settingsSourceMode = AppMode.STOPWATCH
-                                        currentScreen = AppScreen.SETTINGS
+                                val timerScreenKey = when {
+                                    timerState.isFullscreen && timerState.status != TimerStatus.Finished -> "fullscreen"
+                                    timerState.status == TimerStatus.Finished -> "finished"
+                                    timerState.status == TimerStatus.Running || timerState.status == TimerStatus.Paused -> "running"
+                                    else -> "set"
+                                }
+
+                                AnimatedContent(
+                                    targetState = timerScreenKey,
+                                    transitionSpec = {
+                                        if (targetState == "fullscreen" || initialState == "fullscreen") {
+                                            Motion.fullscreenTransition(isZeroDuration = isReducedMotion)
+                                        } else {
+                                            Motion.timerStateTransition(isZeroDuration = isReducedMotion)
+                                        }
                                     },
-                                    onStartClick = { stopwatchViewModel.start() },
-                                    onPauseClick = { stopwatchViewModel.pause() },
-                                    onResumeClick = { stopwatchViewModel.resume() },
-                                    onLapClick = { stopwatchViewModel.lap() },
-                                    onResetClick = { stopwatchViewModel.reset() },
-                                    onFullscreenClick = { stopwatchViewModel.setFullscreen(true) }
-                                )
-                            }
-                        } else {
-                            // Timer Screen flow
-                            val timerScreenKey = when {
-                                timerState.isFullscreen && timerState.status != TimerStatus.Finished -> "fullscreen"
-                                timerState.status == TimerStatus.Finished -> "finished"
-                                timerState.status == TimerStatus.Running || timerState.status == TimerStatus.Paused -> "running"
-                                else -> "set"
-                            }
+                                    label = "TimerScreenTransition",
+                                    modifier = Modifier.fillMaxSize()
+                                ) { screen ->
+                                    when (screen) {
+                                        "fullscreen" -> {
+                                            FullscreenTimerScreen(
+                                                theme = timerState.theme,
+                                                targetEndTime = timerState.targetEndTime,
+                                                pausedRemainingMillis = timerState.pausedRemainingMillis,
+                                                totalMillis = timerState.totalMillis,
+                                                status = timerState.status,
+                                                onExitFullscreen = { timerViewModel.setFullscreen(false) }
+                                            )
+                                        }
 
-                            AnimatedContent(
-                                targetState = timerScreenKey,
-                                transitionSpec = {
-                                    (fadeIn(animationSpec = tween(300)) + scaleIn(
-                                        initialScale = 0.97f,
-                                        animationSpec = tween(300)
-                                    )) togetherWith (fadeOut(animationSpec = tween(250)) + scaleOut(
-                                        targetScale = 1.03f,
-                                        animationSpec = tween(250)
-                                    ))
-                                },
-                                label = "TimerScreenTransition",
-                                modifier = Modifier.fillMaxSize()
-                            ) { screen ->
-                                when (screen) {
-                                    "fullscreen" -> {
-                                        FullscreenTimerScreen(
-                                            theme = timerState.theme,
-                                            targetEndTime = timerState.targetEndTime,
-                                            pausedRemainingMillis = timerState.pausedRemainingMillis,
-                                            totalMillis = timerState.totalMillis,
-                                            status = timerState.status,
-                                            onExitFullscreen = { timerViewModel.setFullscreen(false) }
-                                        )
-                                    }
+                                        "finished" -> {
+                                            FinishedTimerScreen(
+                                                onDismissClick = { timerViewModel.dismissFinished() }
+                                            )
+                                        }
 
-                                    "finished" -> {
-                                        FinishedTimerScreen(
-                                            onDismissClick = { timerViewModel.dismissFinished() }
-                                        )
-                                    }
+                                        "running" -> {
+                                            RunningTimerScreen(
+                                                status = timerState.status,
+                                                targetEndTime = timerState.targetEndTime,
+                                                pausedRemainingMillis = timerState.pausedRemainingMillis,
+                                                totalMillis = timerState.totalMillis,
+                                                theme = timerState.theme,
+                                                onOpenSettings = {
+                                                    settingsSourceMode = AppMode.TIMER
+                                                    currentScreen = AppScreen.SETTINGS
+                                                },
+                                                onPauseClick = { timerViewModel.pauseTimer() },
+                                                onResumeClick = { timerViewModel.resumeTimer() },
+                                                onResetClick = { timerViewModel.resetTimer() },
+                                                onFullscreenClick = { timerViewModel.setFullscreen(true) },
+                                                currentMode = appMode,
+                                                isStopwatchRunning = isStopwatchRunning,
+                                                onModeSelected = onModeChange
+                                            )
+                                        }
 
-                                    "running" -> {
-                                        RunningTimerScreen(
-                                            status = timerState.status,
-                                            targetEndTime = timerState.targetEndTime,
-                                            pausedRemainingMillis = timerState.pausedRemainingMillis,
-                                            totalMillis = timerState.totalMillis,
-                                            theme = timerState.theme,
-                                            onOpenSettings = {
-                                                settingsSourceMode = AppMode.TIMER
-                                                currentScreen = AppScreen.SETTINGS
-                                            },
-                                            onPauseClick = { timerViewModel.pauseTimer() },
-                                            onResumeClick = { timerViewModel.resumeTimer() },
-                                            onResetClick = { timerViewModel.resetTimer() },
-                                            onFullscreenClick = { timerViewModel.setFullscreen(true) },
-                                            currentMode = appMode,
-                                            isStopwatchRunning = isStopwatchRunning,
-                                            onModeSelected = onModeChange
-                                        )
-                                    }
-
-                                    else -> {
-                                        SetTimerScreen(
-                                            hours = timerState.selectedHours,
-                                            minutes = timerState.selectedMinutes,
-                                            seconds = timerState.selectedSeconds,
-                                            selectedTheme = timerState.theme,
-                                            onHoursChange = { timerViewModel.setHours(it) },
-                                            onMinutesChange = { timerViewModel.setMinutes(it) },
-                                            onSecondsChange = { timerViewModel.setSeconds(it) },
-                                            onOpenSettings = {
-                                                settingsSourceMode = AppMode.TIMER
-                                                currentScreen = AppScreen.SETTINGS
-                                            },
-                                            onStartClick = { timerViewModel.startTimer() },
-                                            currentMode = appMode,
-                                            isStopwatchRunning = isStopwatchRunning,
-                                            onModeSelected = onModeChange
-                                        )
+                                        else -> {
+                                            SetTimerScreen(
+                                                hours = timerState.selectedHours,
+                                                minutes = timerState.selectedMinutes,
+                                                seconds = timerState.selectedSeconds,
+                                                selectedTheme = timerState.theme,
+                                                onHoursChange = { timerViewModel.setHours(it) },
+                                                onMinutesChange = { timerViewModel.setMinutes(it) },
+                                                onSecondsChange = { timerViewModel.setSeconds(it) },
+                                                onOpenSettings = {
+                                                    settingsSourceMode = AppMode.TIMER
+                                                    currentScreen = AppScreen.SETTINGS
+                                                },
+                                                onStartClick = { timerViewModel.startTimer() },
+                                                currentMode = appMode,
+                                                isStopwatchRunning = isStopwatchRunning,
+                                                onModeSelected = onModeChange
+                                            )
+                                        }
                                     }
                                 }
                             }

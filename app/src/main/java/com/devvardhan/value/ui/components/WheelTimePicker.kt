@@ -27,6 +27,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -123,6 +125,7 @@ private fun WheelColumn(
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     val itemHeight = 56.dp
     val totalWheelHeight = itemHeight * 3
 
@@ -133,6 +136,13 @@ private fun WheelColumn(
 
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = middleBaseIndex + selectedValue)
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState)
+
+    // Tactile haptic tick on wheel snap during scroll
+    LaunchedEffect(lazyListState.firstVisibleItemIndex) {
+        if (lazyListState.isScrollInProgress) {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
 
     // Sync scrolling state to selectedValue
     LaunchedEffect(lazyListState.isScrollInProgress) {
