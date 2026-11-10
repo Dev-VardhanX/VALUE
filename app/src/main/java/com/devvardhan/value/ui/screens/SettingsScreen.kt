@@ -87,7 +87,6 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .safeDrawingPadding()
     ) {
         Column(

@@ -117,6 +117,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        JankMonitor.setup(this)
         highRefreshModeId = findOptimalHighRefreshMode(this)
 
         initialTargetMode = intent?.getStringExtra(StopwatchService.EXTRA_TARGET_MODE)
@@ -428,7 +429,6 @@ fun ValueApp(
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .background(PureBlack)
             .rootTestTagsAsResourceId(),
         color = PureBlack
     ) {

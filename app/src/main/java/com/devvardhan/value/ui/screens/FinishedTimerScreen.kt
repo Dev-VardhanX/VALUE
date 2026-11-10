@@ -68,7 +68,6 @@ fun FinishedTimerScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .safeDrawingPadding()
     ) {
         Column(

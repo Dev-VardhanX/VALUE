@@ -118,7 +118,6 @@ fun StyleGalleryScreen(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .safeDrawingPadding()
     ) {
         val availableHeight = maxHeight
