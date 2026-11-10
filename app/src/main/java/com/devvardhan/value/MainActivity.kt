@@ -532,7 +532,8 @@ fun ValueApp(
                         AnimatedContent(
                             targetState = appMode,
                             transitionSpec = {
-                                Motion.modeSwitchTransition(isZeroDuration = isReducedMotion)
+                                val forward = targetState == AppMode.STOPWATCH
+                                Motion.modeSwitchTransition(forward = forward, isZeroDuration = isReducedMotion)
                             },
                             label = "AppModeTransition",
                             modifier = Modifier.fillMaxSize()

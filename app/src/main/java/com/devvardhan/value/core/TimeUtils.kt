@@ -29,11 +29,14 @@ object TimeUtils {
         return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
+    private val TWO_DIGIT_CACHE = Array(100) { String.format(Locale.US, "%02d", it) }
+
     /**
      * Formats two-digit number for pickers (e.g., 0 -> "00", 5 -> "05").
+     * Uses zero-allocation precomputed cache for 0..99.
      */
     fun formatTwoDigits(value: Int): String {
-        return String.format(Locale.US, "%02d", value)
+        return if (value in 0..99) TWO_DIGIT_CACHE[value] else String.format(Locale.US, "%02d", value)
     }
 
     /**

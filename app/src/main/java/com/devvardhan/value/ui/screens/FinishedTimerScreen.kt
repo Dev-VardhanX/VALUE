@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -53,6 +54,15 @@ fun FinishedTimerScreen(
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseAlpha"
+    )
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.025f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
     )
 
     Box(
@@ -89,7 +99,11 @@ fun FinishedTimerScreen(
                     progress = 1.0f,
                     size = 280.dp,
                     strokeWidth = 3.5.dp,
-                    modifier = Modifier.alpha(pulseAlpha)
+                    modifier = Modifier.graphicsLayer {
+                        alpha = pulseAlpha
+                        scaleX = pulseScale
+                        scaleY = pulseScale
+                    }
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,

@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
@@ -42,6 +43,7 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 
 /**
  * Three-wheel time duration picker (Hours 0..99, Minutes 0..59, Seconds 0..59)
@@ -250,8 +252,6 @@ private fun WheelColumn(
                     key = { it }
                 ) { index ->
                     val value = index % rangeSize
-                    val isSelected = index == lazyListState.firstVisibleItemIndex
-                    val isAdjacent = kotlin.math.abs(index - lazyListState.firstVisibleItemIndex) == 1
 
                     Box(
                         modifier = Modifier
@@ -264,21 +264,40 @@ private fun WheelColumn(
                                 coroutineScope.launch {
                                     lazyListState.animateScrollToItem(index)
                                 }
+                            }
+                            .graphicsLayer {
+                                val itemHeightPx = itemHeight.toPx()
+                                val scrollOffset = if (itemHeightPx > 0f) {
+                                    lazyListState.firstVisibleItemScrollOffset / itemHeightPx
+                                } else 0f
+                                val continuousIndex = lazyListState.firstVisibleItemIndex.toFloat() + scrollOffset
+                                val diff = (index.toFloat() - continuousIndex).absoluteValue
+
+                                // Smoothly interpolated alpha: 1.0 at center, ~0.35 at ±1, ~0.10 at ±2
+                                val calculatedAlpha = when {
+                                    diff <= 1f -> 1.0f - diff * 0.65f
+                                    diff <= 2f -> 0.35f - (diff - 1f) * 0.25f
+                                    else -> 0.10f
+                                }.coerceIn(0.10f, 1.0f)
+
+                                // Smoothly interpolated scale: 1.0 at center, ~0.65 at ±1
+                                val calculatedScale = (1.0f - diff * 0.35f).coerceIn(0.60f, 1.0f)
+
+                                alpha = calculatedAlpha
+                                scaleX = calculatedScale
+                                scaleY = calculatedScale
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = TimeUtils.formatTwoDigits(value),
                             style = TextStyle(
-                                fontSize = if (isSelected) 42.sp else 24.sp,
+                                fontSize = 42.sp,
                                 fontFamily = FontFamily.Monospace,
-                                fontWeight = if (isSelected) FontWeight.Normal else FontWeight.ExtraLight,
+                                fontWeight = FontWeight.Normal,
                                 fontFeatureSettings = "tnum"
                             ),
-                            color = if (isSelected) PureWhite else SubtleGray,
-                            modifier = Modifier.alpha(
-                                if (isSelected) 1.0f else if (isAdjacent) 0.45f else 0.15f
-                            )
+                            color = PureWhite
                         )
                     }
                 }
