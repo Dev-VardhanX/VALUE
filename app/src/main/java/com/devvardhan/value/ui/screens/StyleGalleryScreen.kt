@@ -2,6 +2,7 @@ package com.devvardhan.value.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,8 +21,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,8 +28,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -48,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -56,6 +59,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.devvardhan.value.R
 import com.devvardhan.value.core.AdaptiveLayoutHelper
 import com.devvardhan.value.core.ThemeLayoutMode
@@ -74,20 +78,18 @@ import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 import com.devvardhan.value.ui.util.debugTestTag
+import kotlin.math.absoluteValue
 
 /**
- * Screen for choosing visual countdown or stopwatch styles in a live, high-fidelity gallery.
+ * Screen for choosing visual countdown or stopwatch styles in a live gallery.
  *
- * Supports two distinct flows:
  * A) First Launch (guided 2-step onboarding):
- *    - Step 1: Choose timer style (all 7 styles). Selecting saves and auto-slides to Step 2.
- *    - Step 2: Choose stopwatch style (4 styles). Selecting saves, marks onboarding done, and opens main in Timer mode.
- *    - Header: Title, subtitle, read-only progress pill (Timer | Stopwatch). No close button.
- *    - Back on step 2 returns to step 1. Back on step 1 exits app.
+ *    - Step 1: Choose timer style. Selecting saves and auto-slides to Step 2.
+ *    - Step 2: Choose stopwatch style. Selecting saves and finishes onboarding.
+ *    - Header: Title, subtitle and a thin step progress bar. No close button.
  *
  * B) Editing Later (single mode, no auto-advance):
- *    - Timer screens open gallery for TIMER only. Stopwatch screen opens for STOPWATCH only.
- *    - Header: "Timer style" or "Stopwatch style", subtitle "Tap a style to apply it", Close (X) button.
+ *    - Header: Title, subtitle and a Close (X) button.
  *    - Selecting a style saves and returns to main immediately.
  */
 @Composable
@@ -114,23 +116,22 @@ fun StyleGalleryScreen(
         val isLandscape = availableWidth > availableHeight * 1.15f
 
         if (isFirstLaunch) {
-            // First Launch: Guided 2-step flow with horizontal slide + fade animation
             AnimatedContent(
                 targetState = firstLaunchStep,
                 transitionSpec = {
                     if (targetState > initialState) {
                         (slideInHorizontally(animationSpec = tween(300)) { it } +
-                            fadeIn(animationSpec = tween(300)))
+                                fadeIn(animationSpec = tween(300)))
                             .togetherWith(
                                 slideOutHorizontally(animationSpec = tween(300)) { -it } +
-                                    fadeOut(animationSpec = tween(300))
+                                        fadeOut(animationSpec = tween(300))
                             )
                     } else {
                         (slideInHorizontally(animationSpec = tween(300)) { -it } +
-                            fadeIn(animationSpec = tween(300)))
+                                fadeIn(animationSpec = tween(300)))
                             .togetherWith(
                                 slideOutHorizontally(animationSpec = tween(300)) { it } +
-                                    fadeOut(animationSpec = tween(300))
+                                        fadeOut(animationSpec = tween(300))
                             )
                     }
                 },
@@ -153,28 +154,23 @@ fun StyleGalleryScreen(
                     selectedTheme = activeTheme,
                     title = title,
                     subtitle = subtitle,
-                    showProgressPill = true,
+                    showProgress = true,
                     progressStep = step,
                     showCloseButton = false,
                     isLandscape = isLandscape,
-                    availableWidth = availableWidth,
-                    availableHeight = availableHeight,
                     onThemeSelected = { selected ->
-                        if (step == 1) {
-                            onTimerThemeSelected(selected)
-                        } else {
-                            onStopwatchThemeSelected(selected)
-                        }
+                        if (step == 1) onTimerThemeSelected(selected)
+                        else onStopwatchThemeSelected(selected)
                     },
                     onDismiss = onDismiss
                 )
             }
         } else {
-            // Edit Mode: Single mode, no progress pill, with close button
             val themes = remember(editMode) { AdaptiveLayoutHelper.getGalleryStyles(editMode) }
             val activeTheme = if (editMode == AppMode.TIMER) timerTheme else stopwatchTheme
             val title = stringResource(
-                if (editMode == AppMode.TIMER) R.string.gallery_edit_timer_title else R.string.gallery_edit_stopwatch_title
+                if (editMode == AppMode.TIMER) R.string.gallery_edit_timer_title
+                else R.string.gallery_edit_stopwatch_title
             )
             val subtitle = stringResource(R.string.gallery_edit_subtitle)
 
@@ -184,12 +180,10 @@ fun StyleGalleryScreen(
                 selectedTheme = activeTheme,
                 title = title,
                 subtitle = subtitle,
-                showProgressPill = false,
+                showProgress = false,
                 progressStep = 1,
                 showCloseButton = true,
                 isLandscape = isLandscape,
-                availableWidth = availableWidth,
-                availableHeight = availableHeight,
                 onThemeSelected = onThemeSelectedInEditMode,
                 onDismiss = onDismiss
             )
@@ -198,9 +192,7 @@ fun StyleGalleryScreen(
 }
 
 /**
- * Responsive layout container for the gallery.
- * In Portrait: Header -> centered hugging card pager -> page indicator dots.
- * In Landscape: Compact slim header -> centered hugging card pager -> page indicator dots.
+ * Responsive layout: header -> centered pager of equal-size cards -> page dots.
  */
 @Composable
 private fun GalleryLayout(
@@ -209,33 +201,26 @@ private fun GalleryLayout(
     selectedTheme: TimerTheme,
     title: String,
     subtitle: String,
-    showProgressPill: Boolean,
+    showProgress: Boolean,
     progressStep: Int,
     showCloseButton: Boolean,
     isLandscape: Boolean,
-    availableWidth: Dp,
-    availableHeight: Dp,
     onThemeSelected: (TimerTheme) -> Unit,
     onDismiss: () -> Unit
 ) {
     val initialIndex = remember(themes, selectedTheme) {
-        val idx = themes.indexOf(selectedTheme)
-        if (idx >= 0) idx else 0
+        themes.indexOf(selectedTheme).coerceAtLeast(0)
     }
     val pagerState = rememberPagerState(initialPage = initialIndex) { themes.size }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(
-                top = if (isLandscape) 8.dp else 14.dp,
-                bottom = if (isLandscape) 8.dp else 14.dp
-            ),
+            .padding(vertical = if (isLandscape) 8.dp else 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // --- HEADER ---
         if (isLandscape) {
-            // Landscape Header: Title & Subtitle on left, Progress Pill or Close Button on right
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -243,152 +228,114 @@ private fun GalleryLayout(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = title,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Light,
-                        color = PureWhite,
-                        letterSpacing = 0.5.sp,
-                        maxLines = 1
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = subtitle,
-                        fontSize = 11.sp,
-                        color = SubtleGray,
-                        letterSpacing = 0.2.sp,
-                        maxLines = 1
-                    )
-                }
+                HeaderTexts(
+                    title = title,
+                    subtitle = subtitle,
+                    titleSize = 18.sp,
+                    subtitleSize = 11.sp,
+                    gap = 2.dp,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
 
-                if (showProgressPill) {
-                    ProgressModePill(
+                if (showProgress) {
+                    StepProgressBar(
                         currentStep = progressStep,
-                        modifier = Modifier.height(30.dp)
+                        modifier = Modifier.width(72.dp)
                     )
                 } else if (showCloseButton) {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .border(1.dp, BorderSubtle, CircleShape)
-                            .semantics { contentDescription = "Close gallery" }
-                            .debugTestTag("btn_close_gallery")
-                    ) {
-                        Icon(
-                            imageVector = AppIcons.Close,
-                            contentDescription = stringResource(R.string.action_close),
-                            tint = PureWhite,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    CloseButton(size = 40.dp, iconSize = 18.dp, onClick = onDismiss)
                 }
             }
         } else {
-            // Portrait Header:
-            // Row with Title & Subtitle on left, Close button on right (if editing)
-            // Below it: Progress Pill (if first launch) with clean spacing
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
             ) {
+                if (showProgress) {
+                    StepProgressBar(
+                        currentStep = progressStep,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f, fill = false)) {
-                        Text(
-                            text = title,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Light,
-                            color = PureWhite,
-                            letterSpacing = 0.5.sp,
-                            maxLines = 1
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = subtitle,
-                            fontSize = 12.sp,
-                            color = SubtleGray,
-                            letterSpacing = 0.2.sp,
-                            maxLines = 1
-                        )
-                    }
+                    HeaderTexts(
+                        title = title,
+                        subtitle = subtitle,
+                        titleSize = 22.sp,
+                        subtitleSize = 12.sp,
+                        gap = 3.dp,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
 
                     if (showCloseButton) {
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = "Close gallery" }
-                                .debugTestTag("btn_close_gallery")
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Close,
-                                contentDescription = stringResource(R.string.action_close),
-                                tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        CloseButton(size = 48.dp, iconSize = 20.dp, onClick = onDismiss)
                     }
-                }
-
-                if (showProgressPill) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ProgressModePill(
-                        currentStep = progressStep,
-                        modifier = Modifier.height(34.dp)
-                    )
                 }
             }
         }
 
-        // --- MIDDLE: PAGER WITH HUGGING CARDS CENTERED VERTICALLY ---
-        Box(
+        // --- MIDDLE: sized from the real remaining space ---
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
+            val metrics = remember(maxWidth, maxHeight, isLandscape) {
+                computeCardMetrics(maxWidth, maxHeight, isLandscape)
+            }
+            val sidePadding = ((maxWidth - metrics.cardWidth) / 2).coerceAtLeast(0.dp)
+
             HorizontalPager(
                 state = pagerState,
-                contentPadding = PaddingValues(
-                    horizontal = if (isLandscape) {
-                        (availableWidth * 0.28f).coerceAtLeast(40.dp)
-                    } else {
-                        42.dp
-                    }
-                ),
+                contentPadding = PaddingValues(horizontal = sidePadding),
+                pageSize = PageSize.Fixed(metrics.cardWidth),
                 pageSpacing = 16.dp,
-                modifier = Modifier.fillMaxWidth()
+                beyondViewportPageCount = 1,
+                flingBehavior = PagerDefaults.flingBehavior(
+                    state = pagerState,
+                    pagerSnapDistance = PagerSnapDistance.atMost(1)
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(metrics.cardHeight)
             ) { page ->
                 val themeItem = themes[page]
                 val isSelected = themeItem == selectedTheme
-                val isCentered = pagerState.currentPage == page
 
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            // Read in the draw phase: no recomposition while swiping
+                            val offset = ((pagerState.currentPage - page) +
+                                    pagerState.currentPageOffsetFraction).absoluteValue
+                                .coerceIn(0f, 1f)
+                            val s = lerp(1f, 0.94f, offset)
+                            scaleX = s
+                            scaleY = s
+                            alpha = lerp(1f, 0.6f, offset)
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     StylePreviewCard(
                         theme = themeItem,
                         mode = mode,
                         isSelected = isSelected,
-                        isAnimated = isCentered,
+                        isAnimated = pagerState.currentPage == page,
                         isLandscape = isLandscape,
-                        availableWidth = availableWidth,
-                        availableHeight = availableHeight,
+                        metrics = metrics,
                         onSelect = {
-                            if (isSelected && showCloseButton) {
-                                // Tapping "Selected" in edit mode simply dismisses
-                                onDismiss()
-                            } else {
-                                onThemeSelected(themeItem)
-                            }
+                            if (isSelected && showCloseButton) onDismiss()
+                            else onThemeSelected(themeItem)
                         }
                     )
                 }
@@ -403,101 +350,167 @@ private fun GalleryLayout(
         ) {
             repeat(themes.size) { index ->
                 val isCurrent = pagerState.currentPage == index
+                val dotSize by animateDpAsState(
+                    targetValue = if (isCurrent) 8.dp else 6.dp,
+                    animationSpec = tween(150),
+                    label = "DotSize"
+                )
+                val dotColor by animateColorAsState(
+                    targetValue = if (isCurrent) PureWhite else Color(0xFF333333),
+                    animationSpec = tween(150),
+                    label = "DotColor"
+                )
                 Box(
                     modifier = Modifier
-                        .size(if (isCurrent) 8.dp else 6.dp)
+                        .size(dotSize)
                         .clip(CircleShape)
-                        .background(if (isCurrent) PureWhite else Color(0xFF333333))
+                        .background(dotColor)
                 )
             }
         }
     }
 }
 
-/**
- * Read-only segmented pill progress indicator ("Timer | Stopwatch").
- * Not clickable and not focusable, purely displays the current onboarding step.
- */
 @Composable
-private fun ProgressModePill(
-    currentStep: Int,
+private fun HeaderTexts(
+    title: String,
+    subtitle: String,
+    titleSize: androidx.compose.ui.unit.TextUnit,
+    subtitleSize: androidx.compose.ui.unit.TextUnit,
+    gap: Dp,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(Color(0xFF0C0C0C))
-            .border(1.dp, BorderSubtle, CircleShape)
-            .padding(3.dp)
-            .semantics(mergeDescendants = true) {
-                contentDescription = if (currentStep == 1) {
-                    "Step 1 of 2: Timer style"
-                } else {
-                    "Step 2 of 2: Stopwatch style"
-                }
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            modifier = Modifier.fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ProgressPillSegment(
-                label = stringResource(R.string.mode_timer),
-                isActive = currentStep == 1,
-                modifier = Modifier.fillMaxHeight()
-            )
-            ProgressPillSegment(
-                label = stringResource(R.string.mode_stopwatch),
-                isActive = currentStep == 2,
-                modifier = Modifier.fillMaxHeight()
-            )
-        }
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            fontSize = titleSize,
+            fontWeight = FontWeight.Light,
+            color = PureWhite,
+            letterSpacing = 0.5.sp,
+            maxLines = 1
+        )
+        Spacer(modifier = Modifier.height(gap))
+        Text(
+            text = subtitle,
+            fontSize = subtitleSize,
+            color = SubtleGray,
+            letterSpacing = 0.2.sp,
+            maxLines = 1
+        )
     }
 }
 
 @Composable
-private fun ProgressPillSegment(
-    label: String,
-    isActive: Boolean,
-    modifier: Modifier = Modifier
+private fun CloseButton(
+    size: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit
 ) {
-    val bgColor by animateColorAsState(
-        targetValue = if (isActive) PureWhite else Color.Transparent,
-        animationSpec = tween(durationMillis = 200),
-        label = "ProgressPillBg"
-    )
-    val textColor by animateColorAsState(
-        targetValue = if (isActive) PureBlack else SubtleGray,
-        animationSpec = tween(durationMillis = 200),
-        label = "ProgressPillText"
-    )
-
-    Box(
-        modifier = modifier
-            .defaultMinSize(minWidth = 78.dp)
-            .clip(CircleShape)
-            .background(bgColor)
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(size)
+            .border(1.dp, BorderSubtle, CircleShape)
+            .semantics { contentDescription = "Close gallery" }
+            .debugTestTag("btn_close_gallery")
     ) {
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
-            color = textColor,
-            letterSpacing = 0.2.sp,
-            maxLines = 1,
-            softWrap = false
+        Icon(
+            imageVector = AppIcons.Close,
+            contentDescription = stringResource(R.string.action_close),
+            tint = PureWhite,
+            modifier = Modifier.size(iconSize)
         )
     }
 }
 
 /**
- * Live preview card for a single theme.
- * Hugs its content tightly (preview box, style name, button) with equal padding
- * and eliminates unwanted dead space.
+ * Minimal read-only step indicator: thin segments that fill as onboarding progresses.
  */
+@Composable
+private fun StepProgressBar(
+    currentStep: Int,
+    modifier: Modifier = Modifier,
+    totalSteps: Int = 2
+) {
+    Row(
+        modifier = modifier.semantics(mergeDescendants = true) {
+            contentDescription = "Step $currentStep of $totalSteps"
+        },
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        repeat(totalSteps) { index ->
+            val filled = index < currentStep
+            val color by animateColorAsState(
+                targetValue = if (filled) PureWhite else Color(0xFF2A2A2A),
+                animationSpec = tween(durationMillis = 300),
+                label = "StepSegment$index"
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(3.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// CARD METRICS
+// -------------------------------------------------------------------------------------------------
+
+@Immutable
+private data class CardMetrics(
+    val cardWidth: Dp,
+    val cardHeight: Dp,
+    val previewWidth: Dp,
+    val previewHeight: Dp,
+    val cardPadding: Dp,
+    val itemSpacing: Dp,
+    val titleHeight: Dp,
+    val buttonHeight: Dp
+)
+
+private const val PREVIEW_ASPECT = 4f / 3f // same preview box for ALL styles
+
+private fun computeCardMetrics(areaWidth: Dp, areaHeight: Dp, isLandscape: Boolean): CardMetrics {
+    val cardPadding = if (isLandscape) 10.dp else 14.dp
+    val itemSpacing = if (isLandscape) 8.dp else 12.dp
+    val buttonHeight = if (isLandscape) 38.dp else 44.dp
+    val titleHeight = if (isLandscape) 20.dp else 24.dp
+    val breathing = 8.dp
+
+    val chrome = cardPadding * 2 + itemSpacing * 2 + titleHeight + buttonHeight
+
+    val maxCardWidth = if (isLandscape) {
+        (areaWidth * 0.4f).coerceIn(240.dp, 440.dp)
+    } else {
+        (areaWidth - 84.dp).coerceIn(240.dp, 360.dp)
+    }
+
+    val maxPreviewHeight = (areaHeight - chrome - breathing * 2).coerceAtLeast(80.dp)
+    val widthBasedPreviewHeight = (maxCardWidth - cardPadding * 2) / PREVIEW_ASPECT
+
+    val previewHeight = minOf(widthBasedPreviewHeight, maxPreviewHeight)
+    val previewWidth = previewHeight * PREVIEW_ASPECT
+
+    return CardMetrics(
+        cardWidth = previewWidth + cardPadding * 2,
+        cardHeight = previewHeight + chrome,
+        previewWidth = previewWidth,
+        previewHeight = previewHeight,
+        cardPadding = cardPadding,
+        itemSpacing = itemSpacing,
+        titleHeight = titleHeight,
+        buttonHeight = buttonHeight
+    )
+}
+
+// -------------------------------------------------------------------------------------------------
+// CARD + LIVE PREVIEW
+// -------------------------------------------------------------------------------------------------
+
 @Composable
 private fun StylePreviewCard(
     theme: TimerTheme,
@@ -505,100 +518,20 @@ private fun StylePreviewCard(
     isSelected: Boolean,
     isAnimated: Boolean,
     isLandscape: Boolean,
-    availableWidth: Dp,
-    availableHeight: Dp,
+    metrics: CardMetrics,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isStopwatchMode = mode == AppMode.STOPWATCH
     val cardShape = RoundedCornerShape(22.dp)
-    val isWide = theme == TimerTheme.THREE_BOX || theme == TimerTheme.FLIP_CLOCK
-    val hasMultiUnitDemo = isWide || theme == TimerTheme.CONCENTRIC_RINGS
-    val totalDemoDuration = if (hasMultiUnitDemo && !isStopwatchMode) 75_420_000L else 10_000L
 
-    var demoMillis by remember {
-        mutableLongStateOf(
-            if (hasMultiUnitDemo) {
-                if (isStopwatchMode) 3_665_000L else 37_240_000L
-            } else {
-                if (isStopwatchMode) 3_500L else 7_200L
-            }
-        )
-    }
-
-    LaunchedEffect(isAnimated, hasMultiUnitDemo, isStopwatchMode) {
-        if (!isAnimated) return@LaunchedEffect
-        val startNano = System.nanoTime()
-        while (true) {
-            withFrameNanos { frameNano ->
-                val elapsed = (frameNano - startNano) / 1_000_000L
-                demoMillis = if (hasMultiUnitDemo) {
-                    if (isStopwatchMode) {
-                        3_665_000L + (elapsed % 10_000L)
-                    } else {
-                        37_240_000L - (elapsed % 10_000L)
-                    }
-                } else {
-                    if (isStopwatchMode) {
-                        elapsed % 10_000L
-                    } else {
-                        10_000L - (elapsed % 10_000L)
-                    }
-                }
-            }
-        }
-    }
-
-    // Geometry calculations to ensure the card hugs its content
-    val cardPadding = if (isLandscape) 10.dp else 14.dp
-    val buttonHeight = if (isLandscape) 38.dp else 44.dp
-    val itemSpacing = if (isLandscape) 8.dp else 12.dp
-
-    // Available space for the card
-    val maxCardWidth: Dp
-    val previewWidth: Dp
-    val previewHeight: Dp
-
-    if (isLandscape) {
-        // Landscape: bound by height
-        val maxAvailableCardHeight = (availableHeight - 64.dp).coerceIn(180.dp, 330.dp)
-        val nonPreviewHeight = cardPadding * 2 + itemSpacing * 2 + 24.dp + buttonHeight
-        val maxPreviewHeight = (maxAvailableCardHeight - nonPreviewHeight).coerceIn(90.dp, 200.dp)
-
-        val targetAspect = if (isWide) 3f / 2f else 1f
-        previewHeight = maxPreviewHeight
-        previewWidth = previewHeight * targetAspect
-        maxCardWidth = previewWidth + cardPadding * 2
-    } else {
-        // Portrait: bound by width, capped so it never overflows screen height
-        val maxAvailableCardHeight = (availableHeight - 160.dp).coerceAtLeast(240.dp)
-        val nonPreviewHeight = cardPadding * 2 + itemSpacing * 2 + 26.dp + buttonHeight
-        val maxAllowedPreviewHeight = (maxAvailableCardHeight - nonPreviewHeight).coerceAtLeast(140.dp)
-
-        val targetAspect = if (isWide) 3f / 2f else 1f
-        val boundedCardWidth = (availableWidth - 84.dp).coerceIn(240.dp, 360.dp)
-        val candidatePreviewWidth = boundedCardWidth - cardPadding * 2
-        val candidatePreviewHeight = candidatePreviewWidth / targetAspect
-
-        if (candidatePreviewHeight > maxAllowedPreviewHeight) {
-            previewHeight = maxAllowedPreviewHeight
-            previewWidth = previewHeight * targetAspect
-            maxCardWidth = previewWidth + cardPadding * 2
-        } else {
-            previewWidth = candidatePreviewWidth
-            previewHeight = candidatePreviewHeight
-            maxCardWidth = boundedCardWidth
-        }
-    }
-
-    Box(
+    Column(
         modifier = modifier
-            .width(maxCardWidth)
-            .wrapContentHeight()
+            .size(metrics.cardWidth, metrics.cardHeight)
             .clip(cardShape)
             .background(Color(0xFF0C0C0C))
             .border(
-                border = if (isSelected) BorderStroke(2.dp, PureWhite) else BorderStroke(1.dp, BorderSubtle),
+                border = if (isSelected) BorderStroke(2.dp, PureWhite)
+                else BorderStroke(1.dp, BorderSubtle),
                 shape = cardShape
             )
             .clickable(
@@ -606,44 +539,28 @@ private fun StylePreviewCard(
                 indication = null,
                 onClick = onSelect
             )
-            .padding(cardPadding),
-        contentAlignment = Alignment.Center
+            .padding(metrics.cardPadding),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier.wrapContentHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Box(
+            modifier = Modifier
+                .size(metrics.previewWidth, metrics.previewHeight)
+                .clip(RoundedCornerShape(14.dp))
+                .background(PureBlack)
+                .padding(6.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Live Preview Box: 1:1 for circular styles, 3:2 for Three Box and Flip Clock
-            Box(
-                modifier = Modifier
-                    .size(width = previewWidth, height = previewHeight)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(PureBlack)
-                    .padding(6.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isStopwatchMode) {
-                    StopwatchVisual(
-                        theme = theme,
-                        elapsedMillis = demoMillis,
-                        status = if (isAnimated) StopwatchStatus.Running else StopwatchStatus.Paused,
-                        layoutMode = ThemeLayoutMode.PORTRAIT
-                    )
-                } else {
-                    TimerVisual(
-                        theme = theme,
-                        remainingMillis = demoMillis,
-                        totalMillis = totalDemoDuration,
-                        status = if (isAnimated) TimerStatus.Running else TimerStatus.Paused,
-                        layoutMode = ThemeLayoutMode.PORTRAIT
-                    )
-                }
-            }
+            LivePreview(theme = theme, mode = mode, isAnimated = isAnimated)
+        }
 
-            Spacer(modifier = Modifier.height(itemSpacing))
+        Spacer(modifier = Modifier.height(metrics.itemSpacing))
 
-            // Style Title
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(metrics.titleHeight),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
                 text = theme.displayName,
                 fontSize = if (isLandscape) 14.sp else 16.sp,
@@ -652,30 +569,85 @@ private fun StylePreviewCard(
                 letterSpacing = 0.5.sp,
                 maxLines = 1
             )
+        }
 
-            Spacer(modifier = Modifier.height(itemSpacing))
+        Spacer(modifier = Modifier.height(metrics.itemSpacing))
 
-            // Select / Selected Button
-            if (isSelected) {
-                PrimaryPillButton(
-                    text = stringResource(R.string.action_selected),
-                    onClick = onSelect,
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .debugTestTag("btn_select_style"),
-                    height = buttonHeight
-                )
-            } else {
-                SecondaryPillButton(
-                    text = stringResource(R.string.action_select),
-                    onClick = onSelect,
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .debugTestTag("btn_select_style"),
-                    height = buttonHeight
-                )
+        if (isSelected) {
+            PrimaryPillButton(
+                text = stringResource(R.string.action_selected),
+                onClick = onSelect,
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .debugTestTag("btn_select_style"),
+                height = metrics.buttonHeight
+            )
+        } else {
+            SecondaryPillButton(
+                text = stringResource(R.string.action_select),
+                onClick = onSelect,
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .debugTestTag("btn_select_style"),
+                height = metrics.buttonHeight
+            )
+        }
+    }
+}
+
+/**
+ * Owns the per-frame animation state, so only this composable recomposes each frame
+ * (not the title, buttons or borders).
+ */
+@Composable
+private fun LivePreview(
+    theme: TimerTheme,
+    mode: AppMode,
+    isAnimated: Boolean
+) {
+    val isStopwatchMode = mode == AppMode.STOPWATCH
+    val hasMultiUnitDemo = theme == TimerTheme.THREE_BOX ||
+            theme == TimerTheme.FLIP_CLOCK ||
+            theme == TimerTheme.CONCENTRIC_RINGS
+    val totalDemoDuration = if (hasMultiUnitDemo && !isStopwatchMode) 75_420_000L else 10_000L
+
+    // Accumulated animation time; survives pause/resume so it never jumps back to 0
+    var phaseNanos by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(isAnimated) {
+        if (!isAnimated) return@LaunchedEffect
+        var last = withFrameNanos { it }
+        while (true) {
+            withFrameNanos { now ->
+                phaseNanos += now - last
+                last = now
             }
         }
+    }
+
+    val elapsed = (phaseNanos / 1_000_000L) % 10_000L
+    val demoMillis = when {
+        hasMultiUnitDemo && isStopwatchMode -> 3_665_000L + elapsed
+        hasMultiUnitDemo -> 37_240_000L - elapsed
+        isStopwatchMode -> 3_500L + elapsed
+        else -> 10_000L - elapsed
+    }
+
+    if (isStopwatchMode) {
+        StopwatchVisual(
+            theme = theme,
+            elapsedMillis = demoMillis,
+            status = if (isAnimated) StopwatchStatus.Running else StopwatchStatus.Paused,
+            layoutMode = ThemeLayoutMode.PORTRAIT
+        )
+    } else {
+        TimerVisual(
+            theme = theme,
+            remainingMillis = demoMillis,
+            totalMillis = totalDemoDuration,
+            status = if (isAnimated) TimerStatus.Running else TimerStatus.Paused,
+            layoutMode = ThemeLayoutMode.PORTRAIT
+        )
     }
 }
 
