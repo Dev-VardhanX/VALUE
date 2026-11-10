@@ -22,17 +22,39 @@ Measurements are taken strictly on the **release build** (`assembleRelease` with
 
 ---
 
-## 2. Display Refresh Rate Analysis
+## 2. Display Refresh Rate Analysis & High Refresh Implementation (Step 2)
 
 - **Hardware Capabilities**: `dumpsys display` reveals that the device display supports 4 distinct refresh rates:
   - Mode 1: 1280 × 2800 @ **144 Hz** (Peak 144.00002 Hz)
   - Mode 4: 1280 × 2800 @ **120 Hz** (Peak 120.00001 Hz, active system mode)
   - Mode 3: 1280 × 2800 @ **90 Hz** (Peak 90.0 Hz)
   - Mode 2: 1280 × 2800 @ **60 Hz** (Peak 60.000004 Hz)
-- **App Execution Rate (Baseline)**:
-  - During continuous countdown and count-up animations, the app successfully syncs to **120 Hz** vsync (`FrameInterval = 8334981 ns` ≈ 8.33 ms).
-  - In a 20-second active timer window, the app renders **2,410 to 2,413 frames**, corresponding to **120.6 frames per second**.
-  - On static screens or background states, the device drops to 60 Hz or suspends vsync to preserve battery.
+
+- **Dynamic High Refresh Rate Implementation**:
+  - Automatically queries `Display.supportedModes` for the display's native resolution and selects the highest refresh rate mode (Mode 1 @ 144Hz / Mode 4 @ 120Hz).
+  - Dynamically assigns `WindowManager.LayoutParams.preferredDisplayModeId` and `preferredRefreshRate` on the window during active animation states:
+    - Running countdown timer
+    - Running stopwatch
+    - Finished timer pulsating alarm
+    - Style gallery pager swiping
+    - Settings and sound navigation sub-pages
+    - Wheel picker momentum flinging
+  - **Battery Guard**:
+    - Drops `preferredDisplayModeId` to `0` (system default / auto) when the screen is idle (static Set Timer screen with settled wheels).
+    - `MainActivity.onPause()` immediately drops preferred display mode to `0` whenever the app leaves the foreground or the screen is turned off.
+    - `MainActivity.onResume()` seamlessly restores high refresh preference if an animation remains active.
+
+- **Empirical Device Verification**:
+  1. **Idle Set Timer Screen**:
+     - `dumpsys window windows`: `preferredDisplayMode=0` (no window preferred mode override, display auto-throttles to save battery).
+  2. **Active Countdown Timer**:
+     - `dumpsys window windows`: `preferredDisplayMode=1` (window successfully locks to highest 144Hz mode).
+  3. **Wheel Picker Fling**:
+     - During gesture fling: `preferredDisplayMode=1` (144Hz buttery smooth momentum scroll).
+     - Settled (idle): drops back to `preferredDisplayMode=0` within 2 seconds.
+  4. **Background / Screen Off Transition (Battery Guard)**:
+     - Sent `keyevent 3` (Home): `preferredDisplayMode` instantly reset to `0`.
+     - Resumed to foreground: `preferredDisplayMode=1` restored cleanly without user intervention.
 
 ---
 
@@ -133,3 +155,4 @@ All 17 baseline reference screenshots have been captured on the physical device 
 - `06_settings.png`
 - `07_sound.png`
 - `08_style_gallery.png`
+

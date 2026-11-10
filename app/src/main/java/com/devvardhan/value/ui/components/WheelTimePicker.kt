@@ -22,8 +22,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -53,8 +56,17 @@ fun WheelTimePicker(
     onHoursChange: (Int) -> Unit,
     onMinutesChange: (Int) -> Unit,
     onSecondsChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onScrollStateChange: (Boolean) -> Unit = {}
 ) {
+    var hoursScrolling by remember { mutableStateOf(false) }
+    var minutesScrolling by remember { mutableStateOf(false) }
+    var secondsScrolling by remember { mutableStateOf(false) }
+
+    LaunchedEffect(hoursScrolling, minutesScrolling, secondsScrolling) {
+        onScrollStateChange(hoursScrolling || minutesScrolling || secondsScrolling)
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -68,6 +80,7 @@ fun WheelTimePicker(
             selectedValue = hours,
             maxValue = 99,
             onValueChange = onHoursChange,
+            onScrollStateChange = { hoursScrolling = it },
             modifier = Modifier.weight(1f)
         )
 
@@ -79,6 +92,7 @@ fun WheelTimePicker(
             selectedValue = minutes,
             maxValue = 59,
             onValueChange = onMinutesChange,
+            onScrollStateChange = { minutesScrolling = it },
             modifier = Modifier.weight(1f)
         )
 
@@ -90,6 +104,7 @@ fun WheelTimePicker(
             selectedValue = seconds,
             maxValue = 59,
             onValueChange = onSecondsChange,
+            onScrollStateChange = { secondsScrolling = it },
             modifier = Modifier.weight(1f)
         )
     }
@@ -122,7 +137,8 @@ private fun WheelColumn(
     selectedValue: Int,
     maxValue: Int,
     onValueChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onScrollStateChange: (Boolean) -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -144,8 +160,9 @@ private fun WheelColumn(
         }
     }
 
-    // Sync scrolling state to selectedValue
+    // Sync scrolling state to selectedValue and notify high refresh rate controller
     LaunchedEffect(lazyListState.isScrollInProgress) {
+        onScrollStateChange(lazyListState.isScrollInProgress)
         if (!lazyListState.isScrollInProgress) {
             val currentIndex = lazyListState.firstVisibleItemIndex
             val resolvedValue = (currentIndex % rangeSize + rangeSize) % rangeSize

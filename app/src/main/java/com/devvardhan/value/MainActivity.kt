@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.StrictMode
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -106,6 +107,7 @@ class MainActivity : ComponentActivity() {
 
     private var initialTargetMode: String? = null
     private var startupState by mutableStateOf<StartupState>(StartupState.Loading)
+    private var highRefreshModeId: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (BuildConfig.DEBUG) {
@@ -114,6 +116,8 @@ class MainActivity : ComponentActivity() {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        highRefreshModeId = findOptimalHighRefreshMode(this)
 
         initialTargetMode = intent?.getStringExtra(StopwatchService.EXTRA_TARGET_MODE)
 
@@ -159,6 +163,81 @@ class MainActivity : ComponentActivity() {
             initialTargetMode = modeExtra
         }
     }
+
+    private var isHighRefreshPreferred: Boolean = false
+
+    fun setHighRefreshRateEnabled(enabled: Boolean) {
+        isHighRefreshPreferred = enabled
+        applyPreferredDisplayMode(enabled)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (isHighRefreshPreferred) {
+            applyPreferredDisplayMode(true)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Battery guard: always reset preferredDisplayModeId to 0 when paused or backgrounded
+        applyPreferredDisplayMode(false)
+    }
+
+    private fun applyPreferredDisplayMode(enabled: Boolean) {
+        val win = window ?: return
+        val params = win.attributes
+        val targetModeId = if (enabled) highRefreshModeId else 0
+        var changed = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (params.preferredDisplayModeId != targetModeId) {
+                params.preferredDisplayModeId = targetModeId
+                changed = true
+            }
+        }
+        val targetRate = if (enabled && highRefreshModeId == 0) 120f else 0f
+        if (params.preferredRefreshRate != targetRate) {
+            params.preferredRefreshRate = targetRate
+            changed = true
+        }
+        if (changed) {
+            win.attributes = params
+            if (BuildConfig.DEBUG) {
+                val currentRate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    display?.mode?.refreshRate ?: 0f
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay?.mode?.refreshRate ?: 0f
+                }
+                Log.d("HighRefreshRate", "Preferred mode set: id=$targetModeId (enabled=$enabled), current display rate=$currentRate Hz")
+            }
+        }
+    }
+}
+
+private fun findOptimalHighRefreshMode(activity: Activity): Int {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        try {
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                activity.display
+            } else {
+                @Suppress("DEPRECATION")
+                activity.windowManager.defaultDisplay
+            }
+            if (display != null) {
+                val currentMode = display.mode
+                val matchingModes = display.supportedModes.filter {
+                    it.physicalWidth == currentMode.physicalWidth && it.physicalHeight == currentMode.physicalHeight
+                }
+                val candidates = if (matchingModes.isNotEmpty()) matchingModes else display.supportedModes.toList()
+                val best = candidates.maxByOrNull { it.refreshRate }
+                if (best != null && best.refreshRate > 60.5f) {
+                    return best.modeId
+                }
+            }
+        } catch (_: Exception) {}
+    }
+    return 0
 }
 
 @Composable
@@ -324,6 +403,25 @@ fun ValueApp(
         }
         onDispose {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    // Dynamic high refresh rate preference (120Hz/144Hz during animation, battery saving when idle)
+    var isWheelScrolling by remember { mutableStateOf(false) }
+    val shouldPreferHighRefresh = isTimerRunning ||
+        isStopwatchRunning ||
+        (timerState.status == TimerStatus.Finished) ||
+        currentScreen != AppScreen.MAIN ||
+        isWheelScrolling
+
+    val activity = remember(context) { context.findActivity() as? MainActivity }
+    LaunchedEffect(shouldPreferHighRefresh) {
+        activity?.setHighRefreshRateEnabled(shouldPreferHighRefresh)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            activity?.setHighRefreshRateEnabled(false)
         }
     }
 
@@ -552,7 +650,8 @@ fun ValueApp(
                                                 onStartClick = { timerViewModel.startTimer() },
                                                 currentMode = appMode,
                                                 isStopwatchRunning = isStopwatchRunning,
-                                                onModeSelected = onModeChange
+                                                onModeSelected = onModeChange,
+                                                onWheelScrollStateChange = { isWheelScrolling = it }
                                             )
                                         }
                                     }
