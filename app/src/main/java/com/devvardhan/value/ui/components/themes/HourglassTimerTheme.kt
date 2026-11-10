@@ -152,6 +152,7 @@ fun HourglassTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        val isCompact = maxHeight < 240.dp
         val dims = remember(maxWidth.value, maxHeight.value, layoutMode) {
             AdaptiveLayoutHelper.calculateHourglassDimensions(maxWidth.value, maxHeight.value, layoutMode)
         }
@@ -572,7 +573,7 @@ fun HourglassTimerTheme(
                     softWrap = false
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(if (isCompact) 2.dp else 6.dp))
 
                 Text(
                     text = if (isPaused) "PAUSED" else "TOTAL $totalTimeFormatted",
@@ -601,12 +602,12 @@ fun HourglassTimerTheme(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 16.dp),
+                    .padding(vertical = if (isCompact) 4.dp else 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 hourglassCanvas()
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(if (isCompact) 8.dp else 24.dp))
                 digitsContent()
             }
         }

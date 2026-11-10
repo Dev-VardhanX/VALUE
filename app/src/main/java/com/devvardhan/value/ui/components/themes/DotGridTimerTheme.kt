@@ -76,6 +76,7 @@ fun DotGridTimerTheme(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        val isCompact = maxHeight < 240.dp
         val isLandscape = when (layoutMode) {
             ThemeLayoutMode.AUTO -> AdaptiveLayoutHelper.isLandscape(maxWidth.value, maxHeight.value, 1.15f)
             ThemeLayoutMode.PORTRAIT -> false
@@ -157,6 +158,8 @@ fun DotGridTimerTheme(
                 (matrix.fontSize * 0.22f).coerceIn(9f, 13f).sp
             }
 
+            val digitsSpacerHeight = if (isCompact) 2.dp else 4.dp
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -175,7 +178,7 @@ fun DotGridTimerTheme(
                     softWrap = false
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(digitsSpacerHeight))
 
                 Text(
                     text = subText,
@@ -189,15 +192,18 @@ fun DotGridTimerTheme(
             }
         }
 
+        val verticalPadding = if (isCompact) 4.dp else if (isLandscape) 8.dp else 12.dp
+        val spacerHeight = if (isCompact) 6.dp else if (isLandscape) 14.dp else 20.dp
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = if (isLandscape) 8.dp else 12.dp, horizontal = 16.dp),
+                .padding(vertical = verticalPadding, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             gridCanvas()
-            Spacer(modifier = Modifier.height(if (isLandscape) 14.dp else 20.dp))
+            Spacer(modifier = Modifier.height(spacerHeight))
             digitsContent()
         }
     }

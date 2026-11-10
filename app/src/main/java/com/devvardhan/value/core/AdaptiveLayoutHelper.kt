@@ -95,9 +95,9 @@ object AdaptiveLayoutHelper {
             val fontSize = minOf(maxFontFromWidth, maxFontFromHeight).coerceIn(16f, 60f)
             HourglassDimensions(width = w, height = h, fontSize = fontSize, isRowLayout = true)
         } else {
-            val h = (availableHeight * 0.48f).coerceIn(80f, 380f)
+            val h = if (availableHeight < 240f) (availableHeight * 0.40f).coerceIn(60f, 380f) else (availableHeight * 0.48f).coerceIn(80f, 380f)
             val w = h * 0.62f
-            val fontSize = (availableWidth * 0.12f).coerceIn(16f, 54f)
+            val fontSize = minOf(availableWidth * 0.12f, availableHeight * 0.16f).coerceIn(16f, 54f)
             HourglassDimensions(width = w, height = h, fontSize = fontSize, isRowLayout = false)
         }
     }
@@ -221,9 +221,10 @@ object AdaptiveLayoutHelper {
         } else {
             val columns = 10
             val rows = 6 // 10 * 6 = 60 dots
-            val gridWidth = (availableWidth * 0.88f).coerceAtLeast(140f)
-            val gridHeight = minOf(availableHeight * 0.45f, gridWidth * 0.60f).coerceAtLeast(80f)
-            val fontSize = (availableWidth * 0.13f).coerceIn(20f, 58f)
+            val gridWidth = (availableWidth * 0.88f).coerceAtLeast(120f)
+            val maxGridHeight = if (availableHeight < 240f) availableHeight * 0.36f else availableHeight * 0.45f
+            val gridHeight = minOf(maxGridHeight, gridWidth * 0.55f).coerceIn(50f, 220f)
+            val fontSize = minOf(availableWidth * 0.13f, availableHeight * 0.15f).coerceIn(16f, 58f)
             DotGridMatrix(
                 columns = columns,
                 rows = rows,
