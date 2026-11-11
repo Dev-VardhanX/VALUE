@@ -77,16 +77,10 @@ fun ThreeBoxTimerTheme(
     // Optimization: Digits derived once per second to prevent unnecessary recomposition
     val digits by remember(isStopwatch, if (isStopwatch) stopwatchElapsedMillisProvider else remainingMillisProvider) {
         derivedStateOf {
-            val totalSeconds = if (isStopwatch) {
-                stopwatchElapsedMillisProvider() / 1000L
-            } else {
-                val rem = remainingMillisProvider()
-                if (rem <= 0L) 0L else (rem + 999L) / 1000L
-            }
             if (isStopwatch) {
-                ScoreboardDigitsHelper.extractElapsed(totalSeconds * 1000L)
+                ScoreboardDigitsHelper.extractElapsed(stopwatchElapsedMillisProvider())
             } else {
-                ScoreboardDigitsHelper.extract(totalSeconds * 1000L)
+                ScoreboardDigitsHelper.extract(remainingMillisProvider())
             }
         }
     }
