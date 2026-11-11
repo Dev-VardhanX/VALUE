@@ -446,10 +446,19 @@ def run_warm_start():
     return total_time
 
 def main():
-    os.makedirs("qa/baseline_metrics", exist_ok=True)
+    out_path = "qa/baseline_metrics/baseline_summary.json"
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        if arg.endswith(".json"):
+            out_path = arg
+        else:
+            out_path = os.path.join(arg, "after_summary.json") if "after" in arg else os.path.join(arg, "summary.json")
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     
     print("==================================================")
-    print("STARTING COMPREHENSIVE BASELINE MEASUREMENTS")
+    print(f"STARTING COMPREHENSIVE BENCHMARK MEASUREMENTS -> {out_path}")
     print("==================================================")
     
     results = {}
@@ -510,12 +519,12 @@ def main():
         results[sname] = med
         print(f"  --> Median {sname}: Jank {med['janky_pct']}%, P50: {med['p50_ms']}ms, P90: {med['p90_ms']}ms, P99: {med['p99_ms']}ms, >16.6ms: {med['over_16_6ms']}, >8.3ms: {med['over_8_3ms']}")
         
-        with open("qa/baseline_metrics/baseline_summary.json", "w") as f:
+        with open(out_path, "w") as f:
             json.dump(results, f, indent=2)
             
     print("\n==================================================")
-    print("ALL BASELINE BENCHMARKS COMPLETED!")
-    print("Results saved to qa/baseline_metrics/baseline_summary.json")
+    print("ALL BENCHMARKS COMPLETED!")
+    print(f"Results saved to {out_path}")
     print("==================================================")
 
 if __name__ == "__main__":
