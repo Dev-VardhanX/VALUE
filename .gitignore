@@ -1,16 +1,59 @@
+# Android / Gradle
+.gradle/
+build/
+*/build/
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea
-.DS_Store
-/build
-/app/build
-/captures
-.externalNativeBuild
-.cxx
 local.properties
+captures/
+.externalNativeBuild/
+.cxx/
 
-# Signing credentials
+# Build & Release Artifacts
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.idsig
+*.dm
+
+# Keystore & Secrets (NEVER track signing credentials or private keys)
 keystore.properties
 *.jks
 *.keystore
+*.pepk
+google-services.json
+
+# QA, Traces, Dumps & Logs
+qa/
+screenshots/
+burst_*.png
+*.perfetto-trace
+*.pftrace
+gfxinfo*
+*.hprof
+*.log
+*.dump
+
+# Python / Scripts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*~
+*.tmp
+*.bak
+
+# Explicit Whitelist Exceptions
+!gradle-wrapper.jar
+!keystore.properties.example
+!app/src/main/res/**
