@@ -19,6 +19,7 @@ import com.devvardhan.value.model.AlarmSound
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -41,6 +42,8 @@ class AlarmSoundManager(private val context: Context) {
     private var fallbackRingtone: Ringtone? = null
     private var isAlarmActive = false
     private var volumeRampJob: Job? = null
+    private var alarmLaunchJob: Job? = null
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // For preview playback on the sound configuration screen
     private var previewPlayer: MediaPlayer? = null
@@ -70,8 +73,9 @@ class AlarmSoundManager(private val context: Context) {
 
         requestAudioFocus()
 
-        val (vibrationEnabled, gradualVolume, soundId) = runBlocking {
-            try {
+        alarmLaunchJob?.cancel()
+        alarmLaunchJob = scope.launch {
+            val (vibrationEnabled, gradualVolume, soundId) = try {
                 Triple(
                     preferencesRepo.vibrationEnabledFlow.first(),
                     preferencesRepo.gradualVolumeEnabledFlow.first(),
@@ -80,11 +84,13 @@ class AlarmSoundManager(private val context: Context) {
             } catch (e: Exception) {
                 Triple(true, false, AlarmSound.ID_PHONE_DEFAULT)
             }
-        }
 
-        startSound(soundId, gradualVolume)
-        if (vibrationEnabled) {
-            startVibration()
+            if (!isAlarmActive) return@launch
+
+            startSound(soundId, gradualVolume)
+            if (vibrationEnabled && isAlarmActive) {
+                startVibration()
+            }
         }
     }
 
@@ -247,6 +253,8 @@ class AlarmSoundManager(private val context: Context) {
         isAlarmActive = false
         Log.d(TAG, "stopAlarm triggered")
 
+        alarmLaunchJob?.cancel()
+        alarmLaunchJob = null
         volumeRampJob?.cancel()
         volumeRampJob = null
 

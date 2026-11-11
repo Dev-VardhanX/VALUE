@@ -22,11 +22,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
@@ -39,6 +43,7 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 
 /**
  * Three-wheel time duration picker (Hours 0..99, Minutes 0..59, Seconds 0..59)
@@ -53,8 +58,17 @@ fun WheelTimePicker(
     onHoursChange: (Int) -> Unit,
     onMinutesChange: (Int) -> Unit,
     onSecondsChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onScrollStateChange: (Boolean) -> Unit = {}
 ) {
+    var hoursScrolling by remember { mutableStateOf(false) }
+    var minutesScrolling by remember { mutableStateOf(false) }
+    var secondsScrolling by remember { mutableStateOf(false) }
+
+    LaunchedEffect(hoursScrolling, minutesScrolling, secondsScrolling) {
+        onScrollStateChange(hoursScrolling || minutesScrolling || secondsScrolling)
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -68,6 +82,7 @@ fun WheelTimePicker(
             selectedValue = hours,
             maxValue = 99,
             onValueChange = onHoursChange,
+            onScrollStateChange = { hoursScrolling = it },
             modifier = Modifier.weight(1f)
         )
 
@@ -79,6 +94,7 @@ fun WheelTimePicker(
             selectedValue = minutes,
             maxValue = 59,
             onValueChange = onMinutesChange,
+            onScrollStateChange = { minutesScrolling = it },
             modifier = Modifier.weight(1f)
         )
 
@@ -90,6 +106,7 @@ fun WheelTimePicker(
             selectedValue = seconds,
             maxValue = 59,
             onValueChange = onSecondsChange,
+            onScrollStateChange = { secondsScrolling = it },
             modifier = Modifier.weight(1f)
         )
     }
@@ -122,7 +139,8 @@ private fun WheelColumn(
     selectedValue: Int,
     maxValue: Int,
     onValueChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onScrollStateChange: (Boolean) -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -144,8 +162,9 @@ private fun WheelColumn(
         }
     }
 
-    // Sync scrolling state to selectedValue
+    // Sync scrolling state to selectedValue and notify high refresh rate controller
     LaunchedEffect(lazyListState.isScrollInProgress) {
+        onScrollStateChange(lazyListState.isScrollInProgress)
         if (!lazyListState.isScrollInProgress) {
             val currentIndex = lazyListState.firstVisibleItemIndex
             val resolvedValue = (currentIndex % rangeSize + rangeSize) % rangeSize
@@ -233,8 +252,6 @@ private fun WheelColumn(
                     key = { it }
                 ) { index ->
                     val value = index % rangeSize
-                    val isSelected = index == lazyListState.firstVisibleItemIndex
-                    val isAdjacent = kotlin.math.abs(index - lazyListState.firstVisibleItemIndex) == 1
 
                     Box(
                         modifier = Modifier
@@ -247,21 +264,40 @@ private fun WheelColumn(
                                 coroutineScope.launch {
                                     lazyListState.animateScrollToItem(index)
                                 }
+                            }
+                            .graphicsLayer {
+                                val itemHeightPx = itemHeight.toPx()
+                                val scrollOffset = if (itemHeightPx > 0f) {
+                                    lazyListState.firstVisibleItemScrollOffset / itemHeightPx
+                                } else 0f
+                                val continuousIndex = lazyListState.firstVisibleItemIndex.toFloat() + scrollOffset
+                                val diff = (index.toFloat() - continuousIndex).absoluteValue
+
+                                // Smoothly interpolated alpha: 1.0 at center, ~0.35 at ±1, ~0.10 at ±2
+                                val calculatedAlpha = when {
+                                    diff <= 1f -> 1.0f - diff * 0.65f
+                                    diff <= 2f -> 0.35f - (diff - 1f) * 0.25f
+                                    else -> 0.10f
+                                }.coerceIn(0.10f, 1.0f)
+
+                                // Smoothly interpolated scale: 1.0 at center, ~0.65 at ±1
+                                val calculatedScale = (1.0f - diff * 0.35f).coerceIn(0.60f, 1.0f)
+
+                                alpha = calculatedAlpha
+                                scaleX = calculatedScale
+                                scaleY = calculatedScale
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = TimeUtils.formatTwoDigits(value),
                             style = TextStyle(
-                                fontSize = if (isSelected) 42.sp else 24.sp,
+                                fontSize = 42.sp,
                                 fontFamily = FontFamily.Monospace,
-                                fontWeight = if (isSelected) FontWeight.Normal else FontWeight.ExtraLight,
+                                fontWeight = FontWeight.Normal,
                                 fontFeatureSettings = "tnum"
                             ),
-                            color = if (isSelected) PureWhite else SubtleGray,
-                            modifier = Modifier.alpha(
-                                if (isSelected) 1.0f else if (isAdjacent) 0.45f else 0.15f
-                            )
+                            color = PureWhite
                         )
                     }
                 }

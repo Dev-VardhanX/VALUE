@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -88,7 +89,7 @@ fun ModeSwitch(
             modifier = Modifier
                 .width(segmentWidth)
                 .fillMaxHeight()
-                .offset(x = pillOffset)
+                .graphicsLayer { translationX = pillOffset.toPx() }
                 .clip(CircleShape)
                 .background(PureWhite)
         )

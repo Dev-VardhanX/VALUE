@@ -63,6 +63,7 @@ fun SetTimerScreen(
     currentMode: AppMode = AppMode.TIMER,
     isStopwatchRunning: Boolean = false,
     onModeSelected: (AppMode) -> Unit = {},
+    onWheelScrollStateChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val totalSeconds = hours * 3600L + minutes * 60L + seconds
@@ -72,7 +73,6 @@ fun SetTimerScreen(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .safeDrawingPadding()
     ) {
         val isLandscape = maxWidth > maxHeight * 1.15f
@@ -98,7 +98,8 @@ fun SetTimerScreen(
                         seconds = seconds,
                         onHoursChange = onHoursChange,
                         onMinutesChange = onMinutesChange,
-                        onSecondsChange = onSecondsChange
+                        onSecondsChange = onSecondsChange,
+                        onScrollStateChange = onWheelScrollStateChange
                     )
                 }
 
@@ -262,6 +263,7 @@ fun SetTimerScreen(
                         onHoursChange = onHoursChange,
                         onMinutesChange = onMinutesChange,
                         onSecondsChange = onSecondsChange,
+                        onScrollStateChange = onWheelScrollStateChange,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }

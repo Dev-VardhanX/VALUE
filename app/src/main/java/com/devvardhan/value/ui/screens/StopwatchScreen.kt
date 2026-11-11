@@ -90,7 +90,6 @@ fun StopwatchScreen(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .safeDrawingPadding()
     ) {
         val isLandscape = maxWidth > maxHeight * 1.15f

@@ -1,0 +1,47 @@
+{
+  "duration_seconds": 300,
+  "display_mode": "1",
+  "framestats": {
+    "total_frames": 36945,
+    "janky_frames": 2,
+    "janky_pct": 0.01,
+    "p50_ms": 9.12,
+    "p90_ms": 9.59,
+    "p95_ms": 9.85,
+    "p99_ms": 9.92,
+    "max_ms": 10.42,
+    "over_16_6ms": 0,
+    "over_11_1ms": 0,
+    "over_8_3ms": 118,
+    "summary_p50": 9,
+    "summary_p90": 9,
+    "summary_p95": 9,
+    "summary_p99": 10,
+    "parsed_total_frames": 118
+  },
+  "memory_before_kb": {
+    "total_pss_kb": 104805,
+    "native_heap_kb": 38756,
+    "dalvik_heap_kb": 10834
+  },
+  "memory_after_kb": {
+    "total_pss_kb": 105051,
+    "native_heap_kb": 38507,
+    "dalvik_heap_kb": 11334
+  },
+  "memory_delta_pss_kb": 246,
+  "battery_before": {
+    "level": 9,
+    "temperature": 33.7,
+    "status": "2"
+  },
+  "battery_after": {
+    "level": 9,
+    "temperature": 33.7,
+    "status": "2"
+  },
+  "battery_temp_delta_c": 0.0,
+  "battery_level_delta_pct": 0,
+  "gc_count_during_run": 0,
+  "gc_sample_lines": []
+}

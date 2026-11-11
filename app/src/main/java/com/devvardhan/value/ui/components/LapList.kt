@@ -163,7 +163,7 @@ private fun LapRow(
 ) {
     val lapSplitText = TimeUtils.formatLapTime(lap.lapTimeMillis)
     val lapTotalText = TimeUtils.formatLapTime(lap.totalTimeMillis)
-    val lapNumStr = String.format("%02d", lap.lapNumber)
+    val lapNumStr = TimeUtils.formatTwoDigits(lap.lapNumber)
 
     Row(
         modifier = Modifier

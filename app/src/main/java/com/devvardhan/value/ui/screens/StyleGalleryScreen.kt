@@ -6,6 +6,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -116,7 +118,6 @@ fun StyleGalleryScreen(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .safeDrawingPadding()
     ) {
         val availableHeight = maxHeight
@@ -354,14 +355,13 @@ private fun GalleryLayout(
                     }
                 }
 
+                val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
                             // Read in the draw phase: no recomposition while swiping
-                            val offset = ((pagerState.currentPage - page) +
-                                    pagerState.currentPageOffsetFraction).absoluteValue
-                                .coerceIn(0f, 1f)
+                            val offset = pageOffset.absoluteValue.coerceIn(0f, 1f)
                             val s = lerp(1f, 0.94f, offset)
                             scaleX = s
                             scaleY = s
@@ -378,6 +378,7 @@ private fun GalleryLayout(
                         isAnimated = isActive,
                         isLandscape = isLandscape,
                         metrics = metrics,
+                        pageOffsetFraction = pageOffset,
                         onSelect = {
                             if (isSelected && showCloseButton) onDismiss()
                             else onThemeSelected(themeItem)
@@ -577,7 +578,8 @@ private fun StylePreviewCard(
     isLandscape: Boolean,
     metrics: CardMetrics,
     onSelect: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pageOffsetFraction: Float = 0f
 ) {
     val cardShape = RoundedCornerShape(22.dp)
 
@@ -604,6 +606,10 @@ private fun StylePreviewCard(
                 .size(metrics.previewWidth, metrics.previewHeight)
                 .clip(RoundedCornerShape(14.dp))
                 .background(PureBlack)
+                .graphicsLayer {
+                    // Parallax: preview content translates at ~0.3x the swipe distance
+                    translationX = pageOffsetFraction * 24.dp.toPx()
+                }
                 .padding(6.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -630,24 +636,34 @@ private fun StylePreviewCard(
 
         Spacer(modifier = Modifier.height(metrics.itemSpacing))
 
-        if (isSelected) {
-            PrimaryPillButton(
-                text = stringResource(R.string.action_selected),
-                onClick = onSelect,
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .debugTestTag("btn_select_style"),
-                height = metrics.buttonHeight
-            )
-        } else {
-            SecondaryPillButton(
-                text = stringResource(R.string.action_select),
-                onClick = onSelect,
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .debugTestTag("btn_select_style"),
-                height = metrics.buttonHeight
-            )
+        AnimatedContent(
+            targetState = isSelected,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.95f, animationSpec = tween(150)))
+                    .togetherWith(fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.95f, animationSpec = tween(150)))
+            },
+            label = "SelectButtonTransition",
+            modifier = Modifier.fillMaxWidth(0.92f)
+        ) { selected ->
+            if (selected) {
+                PrimaryPillButton(
+                    text = stringResource(R.string.action_selected),
+                    onClick = onSelect,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .debugTestTag("btn_select_style"),
+                    height = metrics.buttonHeight
+                )
+            } else {
+                SecondaryPillButton(
+                    text = stringResource(R.string.action_select),
+                    onClick = onSelect,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .debugTestTag("btn_select_style"),
+                    height = metrics.buttonHeight
+                )
+            }
         }
     }
 }

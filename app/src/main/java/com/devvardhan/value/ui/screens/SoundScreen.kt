@@ -9,6 +9,12 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +63,9 @@ import com.devvardhan.value.ui.theme.PureWhite
 import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.theme.ValueTimerTheme
 import com.devvardhan.value.ui.util.debugTestTag
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Sound selection and preview screen for timer alarms.
@@ -74,6 +84,7 @@ fun SoundScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val alarmSoundManager = remember { AlarmSoundManager(context) }
     val localFilesOnlyError = stringResource(R.string.error_local_files_only)
@@ -96,7 +107,7 @@ fun SoundScreen(
         }
     }
 
-    // Document picker for importing local audio without copying files
+    // Document picker for importing local audio without copying files (offloaded to Dispatchers.IO)
     val pickAudioLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
@@ -108,98 +119,97 @@ fun SoundScreen(
             "com.android.externalstorage.documents"
         )
 
-        for (uri in uris) {
-            val authority = uri.authority
-            if (authority !in allowedAuthorities) {
-                Toast.makeText(
-                    context,
-                    localFilesOnlyError,
-                    Toast.LENGTH_SHORT
-                ).show()
-                continue
-            }
-
-            val uriStr = uri.toString()
-            if (importedSounds.any { it.uriString == uriStr }) {
-                continue // Do not duplicate
-            }
-
-            // Persist read access across app restarts
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed taking persistable permission for $uri", e)
-            }
-
-            var displayName = "Audio file"
-            var sizeBytes = 0L
-            try {
-                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                        if (nameIdx != -1) {
-                            displayName = cursor.getString(nameIdx) ?: displayName
-                        }
-                        val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (sizeIdx != -1) {
-                            sizeBytes = cursor.getLong(sizeIdx)
-                        }
+        coroutineScope.launch(Dispatchers.IO) {
+            for (uri in uris) {
+                val authority = uri.authority
+                if (authority !in allowedAuthorities) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, localFilesOnlyError, Toast.LENGTH_SHORT).show()
                     }
+                    continue
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Metadata query error for $uri", e)
-            }
 
-            // Validate that file is playable audio and has positive duration
-            var isValid = false
-            val retriever = MediaMetadataRetriever()
-            try {
-                context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                    retriever.setDataSource(pfd.fileDescriptor)
-                    val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    val duration = durStr?.toLongOrNull() ?: 0L
-                    if (duration > 0L) {
-                        isValid = true
-                    }
+                val uriStr = uri.toString()
+                if (importedSounds.any { it.uriString == uriStr }) {
+                    continue // Do not duplicate
                 }
-            } catch (e: Exception) {
-                isValid = false
-            } finally {
+
+                // Persist read access across app restarts
                 try {
-                    retriever.release()
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
                 } catch (e: Exception) {
-                    // Ignore release failure
+                    Log.w(TAG, "Failed taking persistable permission for $uri", e)
+                }
+
+                var displayName = "Audio file"
+                var sizeBytes = 0L
+                try {
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (nameIdx != -1) {
+                                displayName = cursor.getString(nameIdx) ?: displayName
+                            }
+                            val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                            if (sizeIdx != -1) {
+                                sizeBytes = cursor.getLong(sizeIdx)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Metadata query error for $uri", e)
+                }
+
+                // Validate that file is playable audio and has positive duration
+                var isValid = false
+                val retriever = MediaMetadataRetriever()
+                try {
+                    context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                        retriever.setDataSource(pfd.fileDescriptor)
+                        val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                        val duration = durStr?.toLongOrNull() ?: 0L
+                        if (duration > 0L) {
+                            isValid = true
+                        }
+                    }
+                } catch (e: Exception) {
+                    isValid = false
+                } finally {
+                    try {
+                        retriever.release()
+                    } catch (e: Exception) {
+                        // Ignore release failure
+                    }
+                }
+
+                if (!isValid) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, invalidAudioError, Toast.LENGTH_SHORT).show()
+                    }
+                    continue
+                }
+
+                val userSound = AlarmSound.UserSound(
+                    uriString = uriStr,
+                    name = displayName,
+                    sizeBytes = sizeBytes,
+                    importTimestamp = System.currentTimeMillis()
+                )
+                withContext(Dispatchers.Main) {
+                    onAddUserSound(userSound)
+                    onSelectSound(userSound)
+                    alarmSoundManager.previewSound(userSound)
                 }
             }
-
-            if (!isValid) {
-                Toast.makeText(
-                    context,
-                    invalidAudioError,
-                    Toast.LENGTH_SHORT
-                ).show()
-                continue
-            }
-
-            val userSound = AlarmSound.UserSound(
-                uriString = uriStr,
-                name = displayName,
-                sizeBytes = sizeBytes,
-                importTimestamp = System.currentTimeMillis()
-            )
-            onAddUserSound(userSound)
-            onSelectSound(userSound)
-            alarmSoundManager.previewSound(userSound)
         }
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .safeDrawingPadding()
     ) {
         Column(
@@ -404,7 +414,11 @@ private fun SoundItemRow(
             modifier = Modifier.weight(1f, fill = false)
         )
 
-        if (isSelected) {
+        AnimatedVisibility(
+            visible = isSelected,
+            enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.8f, animationSpec = tween(150)),
+            exit = fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150))
+        ) {
             Icon(
                 imageVector = AppIcons.Check,
                 contentDescription = "Selected",

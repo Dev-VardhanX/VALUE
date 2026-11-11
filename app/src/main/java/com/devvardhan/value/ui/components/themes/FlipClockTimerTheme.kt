@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.core.CellSizeHelper
+import com.devvardhan.value.core.ScoreboardDigitsHelper
 import com.devvardhan.value.core.ThemeLayoutMode
 import com.devvardhan.value.core.TimeUtils
 import com.devvardhan.value.model.StopwatchStatus
@@ -73,28 +74,17 @@ fun FlipClockTimerTheme(
     modifier: Modifier = Modifier,
     layoutMode: ThemeLayoutMode = ThemeLayoutMode.AUTO
 ) {
-    // Optimization: Digits derived once per second to prevent unnecessary recomposition on every millisecond
-    val timeStrings by remember(isStopwatch, if (isStopwatch) stopwatchElapsedMillisProvider else remainingMillisProvider) {
+    // Optimization: Digits derived from a single snapshot via ScoreboardDigitsHelper
+    val digits by remember(isStopwatch, if (isStopwatch) stopwatchElapsedMillisProvider else remainingMillisProvider) {
         derivedStateOf {
-            val raw = if (isStopwatch) {
-                maxOf(0L, stopwatchElapsedMillisProvider()) / 1000L
+            if (isStopwatch) {
+                ScoreboardDigitsHelper.extractElapsed(stopwatchElapsedMillisProvider())
             } else {
-                val rem = remainingMillisProvider()
-                if (rem <= 0L) 0L else (rem + 999L) / 1000L
+                ScoreboardDigitsHelper.extract(remainingMillisProvider())
             }
-            val maxSeconds = 99 * 3600L + 59 * 60L + 59L
-            val displayedSeconds = raw.coerceAtMost(maxSeconds)
-            val hours = (displayedSeconds / 3600).toInt()
-            val minutes = ((displayedSeconds % 3600) / 60).toInt()
-            val seconds = (displayedSeconds % 60).toInt()
-            Triple(
-                TimeUtils.formatTwoDigits(hours),
-                TimeUtils.formatTwoDigits(minutes),
-                TimeUtils.formatTwoDigits(seconds)
-            )
         }
     }
-    val (hStr, mStr, sStr) = timeStrings
+    val isRunning = if (isStopwatch) stopwatchStatus == StopwatchStatus.Running else status == TimerStatus.Running
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -121,20 +111,20 @@ fun FlipClockTimerTheme(
             modifier = Modifier.padding(horizontal = 2.dp)
         ) {
             // Hours
-            FlipDigitCard(digit = hStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
-            FlipDigitCard(digit = hStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+            FlipDigitCard(digit = digits.hoursTens, width = cardWidth, height = cardHeight, fontSize = fontSize, animate = isRunning)
+            FlipDigitCard(digit = digits.hoursOnes, width = cardWidth, height = cardHeight, fontSize = fontSize, animate = isRunning)
 
             FlipColon(height = cardHeight, width = dims.colonWidth.dp)
 
             // Minutes
-            FlipDigitCard(digit = mStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
-            FlipDigitCard(digit = mStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+            FlipDigitCard(digit = digits.minutesTens, width = cardWidth, height = cardHeight, fontSize = fontSize, animate = isRunning)
+            FlipDigitCard(digit = digits.minutesOnes, width = cardWidth, height = cardHeight, fontSize = fontSize, animate = isRunning)
 
             FlipColon(height = cardHeight, width = dims.colonWidth.dp)
 
             // Seconds
-            FlipDigitCard(digit = sStr[0], width = cardWidth, height = cardHeight, fontSize = fontSize)
-            FlipDigitCard(digit = sStr[1], width = cardWidth, height = cardHeight, fontSize = fontSize)
+            FlipDigitCard(digit = digits.secondsTens, width = cardWidth, height = cardHeight, fontSize = fontSize, animate = isRunning)
+            FlipDigitCard(digit = digits.secondsOnes, width = cardWidth, height = cardHeight, fontSize = fontSize, animate = isRunning)
 
             if (isStopwatch) {
                 CentisecondsSlot(
@@ -177,22 +167,36 @@ private fun FlipDigitCard(
     digit: Char,
     width: Dp,
     height: Dp,
-    fontSize: TextUnit
+    fontSize: TextUnit,
+    animate: Boolean = true
 ) {
-    var previousDigit by remember { mutableStateOf(digit) }
-    var displayedDigit by remember { mutableStateOf(digit) }
+    var currentDigit by remember { mutableStateOf(digit) }
+    var outgoingDigit by remember { mutableStateOf(digit) }
+    var isFlipping by remember { mutableStateOf(false) }
     val flipAnimation = remember { Animatable(0f) }
 
-    LaunchedEffect(digit) {
-        if (digit != displayedDigit) {
-            previousDigit = displayedDigit
-            flipAnimation.snapTo(0f)
-            flipAnimation.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
-            )
-            displayedDigit = digit
-            flipAnimation.snapTo(0f)
+    LaunchedEffect(digit, animate) {
+        if (digit != currentDigit) {
+            if (animate) {
+                outgoingDigit = currentDigit
+                isFlipping = true
+                flipAnimation.snapTo(0f)
+                try {
+                    flipAnimation.animateTo(
+                        targetValue = 1f,
+                        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+                    )
+                    currentDigit = digit
+                } finally {
+                    flipAnimation.snapTo(0f)
+                    isFlipping = false
+                    currentDigit = digit
+                }
+            } else {
+                currentDigit = digit
+                isFlipping = false
+                flipAnimation.snapTo(0f)
+            }
         }
     }
 
@@ -205,11 +209,15 @@ private fun FlipDigitCard(
             .border(0.5.dp, Color(0xFF262626), cardShape)
             .graphicsLayer {
                 cameraDistance = 16f * density
-                rotationX = -flipAnimation.value * 180f
+                rotationX = if (isFlipping) -flipAnimation.value * 180f else 0f
             },
         contentAlignment = Alignment.Center
     ) {
-        val charToShow = if (flipAnimation.value < 0.5f) previousDigit else displayedDigit
+        val charToShow = if (isFlipping) {
+            if (flipAnimation.value < 0.5f) outgoingDigit else digit
+        } else {
+            currentDigit
+        }
 
         Text(
             text = charToShow.toString(),
@@ -223,7 +231,7 @@ private fun FlipDigitCard(
             ),
             color = PureWhite,
             modifier = Modifier.graphicsLayer {
-                if (flipAnimation.value >= 0.5f) {
+                if (isFlipping && flipAnimation.value >= 0.5f) {
                     rotationX = 180f
                 }
             }
