@@ -242,20 +242,18 @@ class StopwatchService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID_STOPWATCH,
-                "Stopwatch",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Ongoing stopwatch chronometer and actions"
-                setShowBadge(false)
-                setSound(null, null)
-                enableVibration(false)
-            }
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID_STOPWATCH,
+            "Stopwatch",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Ongoing stopwatch chronometer and actions"
+            setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
         }
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun acquireWakeLock() {

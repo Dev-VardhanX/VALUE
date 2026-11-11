@@ -96,26 +96,17 @@ class AlarmSoundManager(private val context: Context) {
 
     private fun requestAudioFocus() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val playbackAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
+            val playbackAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
 
-                audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                    .setAudioAttributes(playbackAttributes)
-                    .setOnAudioFocusChangeListener { /* Alarm priority */ }
-                    .build()
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(playbackAttributes)
+                .setOnAudioFocusChangeListener { /* Alarm priority */ }
+                .build()
 
-                audioFocusRequest?.let { audioManager?.requestAudioFocus(it) }
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager?.requestAudioFocus(
-                    null,
-                    AudioManager.STREAM_ALARM,
-                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-                )
-            }
+            audioFocusRequest?.let { audioManager?.requestAudioFocus(it) }
         } catch (e: Exception) {
             Log.w(TAG, "Audio focus request failed", e)
         }
@@ -123,13 +114,8 @@ class AlarmSoundManager(private val context: Context) {
 
     private fun abandonAudioFocus() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
-                audioFocusRequest = null
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager?.abandonAudioFocus(null)
-            }
+            audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+            audioFocusRequest = null
         } catch (e: Exception) {
             Log.w(TAG, "Abandon audio focus failed", e)
         }
@@ -234,13 +220,8 @@ class AlarmSoundManager(private val context: Context) {
         try {
             if (vibrator?.hasVibrator() == true) {
                 val timings = longArrayOf(0, 500, 300, 500, 300, 700, 400)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val effect = VibrationEffect.createWaveform(timings, 0)
-                    vibrator?.vibrate(effect)
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(timings, 0)
-                }
+                val effect = VibrationEffect.createWaveform(timings, 0)
+                vibrator?.vibrate(effect)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Vibration failed", e)

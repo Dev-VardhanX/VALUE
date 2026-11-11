@@ -321,31 +321,29 @@ class TimerService : Service() {
     }
 
     private fun createNotificationChannels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            val ongoingChannel = NotificationChannel(
-                CHANNEL_ID_ONGOING,
-                "Timer Countdown",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows the active countdown timer progress"
-                setShowBadge(false)
-            }
-
-            val alarmChannel = NotificationChannel(
-                CHANNEL_ID_ALARM,
-                "Timer Alarm",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifies when the timer finishes"
-                setShowBadge(true)
-                enableVibration(true)
-            }
-
-            notificationManager.createNotificationChannel(ongoingChannel)
-            notificationManager.createNotificationChannel(alarmChannel)
+        val ongoingChannel = NotificationChannel(
+            CHANNEL_ID_ONGOING,
+            "Timer Countdown",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows the active countdown timer progress"
+            setShowBadge(false)
         }
+
+        val alarmChannel = NotificationChannel(
+            CHANNEL_ID_ALARM,
+            "Timer Alarm",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifies when the timer finishes"
+            setShowBadge(true)
+            enableVibration(true)
+        }
+
+        notificationManager.createNotificationChannel(ongoingChannel)
+        notificationManager.createNotificationChannel(alarmChannel)
     }
 
     override fun onDestroy() {

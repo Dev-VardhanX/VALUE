@@ -190,11 +190,9 @@ class MainActivity : ComponentActivity() {
         val params = win.attributes
         val targetModeId = if (enabled) highRefreshModeId else 0
         var changed = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (params.preferredDisplayModeId != targetModeId) {
-                params.preferredDisplayModeId = targetModeId
-                changed = true
-            }
+        if (params.preferredDisplayModeId != targetModeId) {
+            params.preferredDisplayModeId = targetModeId
+            changed = true
         }
         val targetRate = if (enabled && highRefreshModeId == 0) 120f else 0f
         if (params.preferredRefreshRate != targetRate) {
@@ -217,27 +215,25 @@ class MainActivity : ComponentActivity() {
 }
 
 private fun findOptimalHighRefreshMode(activity: Activity): Int {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        try {
-            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                activity.display
-            } else {
-                @Suppress("DEPRECATION")
-                activity.windowManager.defaultDisplay
+    try {
+        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity.display
+        } else {
+            @Suppress("DEPRECATION")
+            activity.windowManager.defaultDisplay
+        }
+        if (display != null) {
+            val currentMode = display.mode
+            val matchingModes = display.supportedModes.filter {
+                it.physicalWidth == currentMode.physicalWidth && it.physicalHeight == currentMode.physicalHeight
             }
-            if (display != null) {
-                val currentMode = display.mode
-                val matchingModes = display.supportedModes.filter {
-                    it.physicalWidth == currentMode.physicalWidth && it.physicalHeight == currentMode.physicalHeight
-                }
-                val candidates = if (matchingModes.isNotEmpty()) matchingModes else display.supportedModes.toList()
-                val best = candidates.maxByOrNull { it.refreshRate }
-                if (best != null && best.refreshRate > 60.5f) {
-                    return best.modeId
-                }
+            val candidates = if (matchingModes.isNotEmpty()) matchingModes else display.supportedModes.toList()
+            val best = candidates.maxByOrNull { it.refreshRate }
+            if (best != null && best.refreshRate > 60.5f) {
+                return best.modeId
             }
-        } catch (_: Exception) {}
-    }
+        }
+    } catch (_: Exception) {}
     return 0
 }
 
