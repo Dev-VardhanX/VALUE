@@ -36,6 +36,7 @@ import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.AppIcons
+import com.devvardhan.value.ui.components.MainHeader
 import com.devvardhan.value.ui.components.ModeSwitch
 import com.devvardhan.value.ui.components.PrimaryPillButton
 import com.devvardhan.value.ui.components.SecondaryPillButton
@@ -70,17 +71,6 @@ fun RunningTimerScreen(
     onModeSelected: (AppMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val isPaused = status == TimerStatus.Paused
-    val settingsDesc = stringResource(R.string.action_settings)
-    val fullscreenDesc = stringResource(R.string.action_fullscreen)
-
-    // High performance frame clock; stored in State and provided as lambda to avoid recomposing the screen
-    val liveRemainingMillisState = rememberCountdownRemainingMillis(
-        status = status,
-        targetEndTime = targetEndTime,
-        pausedRemainingMillis = pausedRemainingMillis
-    )
-
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -88,248 +78,170 @@ fun RunningTimerScreen(
     ) {
         val isLandscape = maxWidth > maxHeight * 1.15f
 
-        if (isLandscape) {
-            // Landscape layout: visual on the left, controls on the right
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically
+        Column(modifier = Modifier.fillMaxSize()) {
+            MainHeader(
+                currentMode = currentMode,
+                isTimerRunning = status == TimerStatus.Running,
+                isStopwatchRunning = isStopwatchRunning,
+                onOpenSettings = onOpenSettings,
+                onFullscreenClick = onFullscreenClick,
+                onModeSelected = onModeSelected,
+                progressProvider = { 0f },
+                fullscreenAlphaProvider = { 1f },
+                isLandscape = isLandscape
+            )
+
+            RunningTimerContent(
+                status = status,
+                targetEndTime = targetEndTime,
+                pausedRemainingMillis = pausedRemainingMillis,
+                totalMillis = totalMillis,
+                theme = theme,
+                onPauseClick = onPauseClick,
+                onResumeClick = onResumeClick,
+                onResetClick = onResetClick,
+                isLandscape = isLandscape,
+                isVisible = true,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * Pure body content for Running Timer: displays the theme visual and pause/resume/reset action buttons.
+ * Placed within the HorizontalPager below the fixed MainHeader.
+ */
+@Composable
+fun RunningTimerContent(
+    status: TimerStatus,
+    targetEndTime: Long,
+    pausedRemainingMillis: Long,
+    totalMillis: Long,
+    theme: TimerTheme,
+    onPauseClick: () -> Unit,
+    onResumeClick: () -> Unit,
+    onResetClick: () -> Unit,
+    isLandscape: Boolean,
+    isVisible: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val isPaused = status == TimerStatus.Paused
+
+    // High performance frame clock; stored in State and provided as lambda to avoid recomposing the screen
+    val liveRemainingMillisState = rememberCountdownRemainingMillis(
+        status = status,
+        targetEndTime = targetEndTime,
+        pausedRemainingMillis = pausedRemainingMillis,
+        isVisible = isVisible
+    )
+
+    if (isLandscape) {
+        // Landscape layout: visual on the left, controls on the right
+        Row(
+            modifier = modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Visual container (left/center)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
             ) {
-                // Visual container (left/center)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    TimerVisual(
-                        theme = theme,
-                        remainingMillisProvider = { liveRemainingMillisState.value },
-                        totalMillis = totalMillis,
-                        status = status
-                    )
-                }
-
-                // Controls column (right)
-                Column(
-                    modifier = Modifier
-                        .width(220.dp)
-                        .fillMaxHeight()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Header row: VALUE wordmark on left, Style + Fullscreen on right
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SubtleGray,
-                            letterSpacing = 3.sp
-                        )
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = onOpenSettings,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .border(1.dp, BorderSubtle, CircleShape)
-                                    .semantics { contentDescription = settingsDesc }
-                                    .debugTestTag("btn_settings")
-                            ) {
-                                Icon(
-                                    imageVector = AppIcons.Settings,
-                                    contentDescription = settingsDesc,
-                                    tint = PureWhite,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            IconButton(
-                                onClick = onFullscreenClick,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .border(1.dp, BorderSubtle, CircleShape)
-                                    .semantics { contentDescription = fullscreenDesc }
-                                    .debugTestTag("btn_fullscreen")
-                            ) {
-                                Icon(
-                                    imageVector = AppIcons.Fullscreen,
-                                    contentDescription = fullscreenDesc,
-                                    tint = PureWhite,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    ModeSwitch(
-                        currentMode = currentMode,
-                        isTimerRunning = status == TimerStatus.Running,
-                        isStopwatchRunning = isStopwatchRunning,
-                        onModeSelected = onModeSelected,
-                        modifier = Modifier.width(200.dp)
-                    )
-
-                    // Action buttons (stacked)
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        PrimaryPillButton(
-                            text = stringResource(if (isPaused) R.string.action_resume else R.string.action_pause),
-                            onClick = if (isPaused) onResumeClick else onPauseClick,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .debugTestTag(if (isPaused) "btn_resume_timer" else "btn_pause_timer"),
-                            height = 52.dp
-                        )
-
-                        SecondaryPillButton(
-                            text = stringResource(R.string.action_reset),
-                            onClick = onResetClick,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .debugTestTag("btn_reset_timer"),
-                            height = 52.dp
-                        )
-                    }
-                }
+                TimerVisual(
+                    theme = theme,
+                    remainingMillisProvider = { liveRemainingMillisState.value },
+                    totalMillis = totalMillis,
+                    status = status
+                )
             }
-        } else {
-            // Portrait layout:
-            // 1. Top row: VALUE wordmark on left, Style + Fullscreen on right
-            // 2. Directly below: ModeSwitch centered
-            // 3. Visual
-            // 4. Action buttons
+
+            // Controls column (right)
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .width(220.dp)
+                    .fillMaxHeight()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Row 1: Wordmark on left, Style & Fullscreen on right
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SubtleGray,
-                        letterSpacing = 3.sp
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = onOpenSettings,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = settingsDesc }
-                                .debugTestTag("btn_settings")
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Settings,
-                                contentDescription = settingsDesc,
-                                tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = onFullscreenClick,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = fullscreenDesc }
-                                .debugTestTag("btn_fullscreen")
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Fullscreen,
-                                contentDescription = fullscreenDesc,
-                                tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Row 2: ModeSwitch directly below, centered (identical metrics to SetTimer and Stopwatch)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ModeSwitch(
-                        currentMode = currentMode,
-                        isTimerRunning = status == TimerStatus.Running,
-                        isStopwatchRunning = isStopwatchRunning,
-                        onModeSelected = onModeSelected,
-                        modifier = Modifier.width(216.dp)
-                    )
-                }
-
-                // Visual container with 60fps frame updates
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    TimerVisual(
-                        theme = theme,
-                        remainingMillisProvider = { liveRemainingMillisState.value },
-                        totalMillis = totalMillis,
-                        status = status
-                    )
-                }
-
-                // Bottom action controls
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SecondaryPillButton(
-                        text = stringResource(R.string.action_reset),
-                        onClick = onResetClick,
-                        modifier = Modifier
-                            .weight(1f)
-                            .debugTestTag("btn_reset_timer"),
-                        height = 56.dp
-                    )
-
                     PrimaryPillButton(
                         text = stringResource(if (isPaused) R.string.action_resume else R.string.action_pause),
                         onClick = if (isPaused) onResumeClick else onPauseClick,
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxWidth()
                             .debugTestTag(if (isPaused) "btn_resume_timer" else "btn_pause_timer"),
-                        height = 56.dp
+                        height = 52.dp
+                    )
+
+                    SecondaryPillButton(
+                        text = stringResource(R.string.action_reset),
+                        onClick = onResetClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .debugTestTag("btn_reset_timer"),
+                        height = 52.dp
                     )
                 }
+            }
+        }
+    } else {
+        // Portrait layout:
+        // 1. Visual
+        // 2. Action buttons
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Visual container with 60fps frame updates
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                TimerVisual(
+                    theme = theme,
+                    remainingMillisProvider = { liveRemainingMillisState.value },
+                    totalMillis = totalMillis,
+                    status = status
+                )
+            }
+
+            // Bottom action controls
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SecondaryPillButton(
+                    text = stringResource(R.string.action_reset),
+                    onClick = onResetClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .debugTestTag("btn_reset_timer"),
+                    height = 56.dp
+                )
+
+                PrimaryPillButton(
+                    text = stringResource(if (isPaused) R.string.action_resume else R.string.action_pause),
+                    onClick = if (isPaused) onResumeClick else onPauseClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .debugTestTag(if (isPaused) "btn_resume_timer" else "btn_pause_timer"),
+                    height = 56.dp
+                )
             }
         }
     }

@@ -19,7 +19,8 @@ import kotlinx.coroutines.isActive
 fun rememberCountdownRemainingMillis(
     status: TimerStatus,
     targetEndTime: Long,
-    pausedRemainingMillis: Long
+    pausedRemainingMillis: Long,
+    isVisible: Boolean = true
 ): State<Long> {
     val initialRemaining = when (status) {
         TimerStatus.Running -> maxOf(0L, targetEndTime - SystemClock.elapsedRealtime())
@@ -32,14 +33,20 @@ fun rememberCountdownRemainingMillis(
         mutableLongStateOf(initialRemaining)
     }
 
-    LaunchedEffect(status, targetEndTime, pausedRemainingMillis) {
+    LaunchedEffect(status, targetEndTime, pausedRemainingMillis, isVisible) {
         when (status) {
             TimerStatus.Running -> {
-                while (isActive) {
-                    withFrameNanos {
-                        val now = SystemClock.elapsedRealtime()
-                        remainingMillisState.longValue = maxOf(0L, targetEndTime - now)
+                if (isVisible) {
+                    while (isActive) {
+                        withFrameNanos {
+                            val now = SystemClock.elapsedRealtime()
+                            remainingMillisState.longValue = maxOf(0L, targetEndTime - now)
+                        }
                     }
+                } else {
+                    // Update once while off-screen to avoid battery-wasting frame loop
+                    val now = SystemClock.elapsedRealtime()
+                    remainingMillisState.longValue = maxOf(0L, targetEndTime - now)
                 }
             }
 

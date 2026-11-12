@@ -114,36 +114,6 @@ object Motion {
     }
 
     /**
-     * Mode switch transition between Timer and Stopwatch:
-     * Horizontal slide (Timer slides left when going to Stopwatch, Stopwatch slides right when going to Timer, with subtle crossfade).
-     */
-    fun modeSwitchTransition(forward: Boolean, isZeroDuration: Boolean = false): ContentTransform {
-        if (isZeroDuration) {
-            return fadeIn(tween(0)) togetherWith fadeOut(tween(0))
-        }
-        val duration = DurationMedium
-        return if (forward) {
-            (slideInHorizontally(
-                initialOffsetX = { fullWidth -> (fullWidth * 0.25f).toInt() },
-                animationSpec = tween(duration, easing = EmphasizedEasing)
-            ) + fadeIn(tween(duration, easing = EmphasizedEasing))) togetherWith
-            (slideOutHorizontally(
-                targetOffsetX = { fullWidth -> (-fullWidth * 0.25f).toInt() },
-                animationSpec = tween(duration, easing = EmphasizedEasing)
-            ) + fadeOut(tween(duration, easing = EmphasizedEasing)))
-        } else {
-            (slideInHorizontally(
-                initialOffsetX = { fullWidth -> (-fullWidth * 0.25f).toInt() },
-                animationSpec = tween(duration, easing = EmphasizedEasing)
-            ) + fadeIn(tween(duration, easing = EmphasizedEasing))) togetherWith
-            (slideOutHorizontally(
-                targetOffsetX = { fullWidth -> (fullWidth * 0.25f).toInt() },
-                animationSpec = tween(duration, easing = EmphasizedEasing)
-            ) + fadeOut(tween(duration, easing = EmphasizedEasing)))
-        }
-    }
-
-    /**
      * Fullscreen enter / exit transition:
      * Smooth zoom and fade.
      */

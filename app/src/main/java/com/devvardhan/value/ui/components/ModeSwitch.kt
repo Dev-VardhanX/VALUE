@@ -12,11 +12,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -47,7 +47,6 @@ import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.Motion
 import com.devvardhan.value.ui.theme.PureBlack
 import com.devvardhan.value.ui.theme.PureWhite
-import com.devvardhan.value.ui.theme.SubtleGray
 import com.devvardhan.value.ui.util.debugTestTag
 
 /**
@@ -55,6 +54,7 @@ import com.devvardhan.value.ui.util.debugTestTag
  * Uses a smoothly sliding physical white pill with subtle spring physics and light haptic feedback.
  * Fixed-size text with single line, no truncation, fits comfortably at font scale 1.3.
  * Displays an active status dot on unselected segments when that engine is currently running.
+ * Each segment has a full 48dp height touch target covering its entire half of the switch.
  */
 @Composable
 fun ModeSwitch(
@@ -62,38 +62,58 @@ fun ModeSwitch(
     isTimerRunning: Boolean,
     isStopwatchRunning: Boolean,
     onModeSelected: (AppMode) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    progressProvider: (() -> Float)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val isReducedMotion = remember(context) { Motion.isAnimationsDisabled(context) }
+    val density = LocalDensity.current
 
     BoxWithConstraints(
         modifier = modifier
-            .height(38.dp)
-            .clip(CircleShape)
-            .background(Color(0xFF0C0C0C))
-            .border(1.dp, BorderSubtle, CircleShape)
-            .padding(3.dp),
-        contentAlignment = Alignment.CenterStart
+            .height(48.dp),
+        contentAlignment = Alignment.Center
     ) {
-        val segmentWidth = maxWidth / 2f
+        val innerSegmentWidth = (maxWidth - 6.dp) / 2f
+
         val pillOffset by animateDpAsState(
-            targetValue = if (currentMode == AppMode.TIMER) 0.dp else segmentWidth,
+            targetValue = if (currentMode == AppMode.TIMER) 0.dp else innerSegmentWidth,
             animationSpec = if (isReducedMotion) tween(0) else Motion.PillSpringDp,
             label = "SlidingPill"
         )
 
-        // Smoothly sliding physical white pill
+        // Visible pill background track (38dp high, centered vertically within the 48dp touch area)
         Box(
             modifier = Modifier
-                .width(segmentWidth)
-                .fillMaxHeight()
-                .graphicsLayer { translationX = pillOffset.toPx() }
+                .fillMaxWidth()
+                .height(38.dp)
                 .clip(CircleShape)
-                .background(PureWhite)
-        )
+                .background(Color(0xFF0C0C0C))
+                .border(1.dp, BorderSubtle, CircleShape)
+                .padding(3.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            // Smoothly sliding physical white pill: fraction-driven in draw phase when pager provides it
+            Box(
+                modifier = Modifier
+                    .width(innerSegmentWidth)
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        val progress = progressProvider?.invoke()?.coerceIn(0f, 1f)
+                        translationX = if (progress != null) {
+                            val segmentWidthPx = density.run { innerSegmentWidth.toPx() }
+                            progress * segmentWidthPx
+                        } else {
+                            pillOffset.toPx()
+                        }
+                    }
+                    .clip(CircleShape)
+                    .background(PureWhite)
+            )
+        }
 
+        // Tap targets row: full 48dp height, each half covers its whole half of the switch
         Row(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
@@ -103,13 +123,12 @@ fun ModeSwitch(
                 isSelected = currentMode == AppMode.TIMER,
                 showActiveDot = (currentMode != AppMode.TIMER) && isTimerRunning,
                 onClick = {
-                    if (currentMode != AppMode.TIMER) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onModeSelected(AppMode.TIMER)
-                    }
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onModeSelected(AppMode.TIMER)
                 },
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxHeight()
                     .debugTestTag("mode_timer")
             )
 
@@ -118,13 +137,12 @@ fun ModeSwitch(
                 isSelected = currentMode == AppMode.STOPWATCH,
                 showActiveDot = (currentMode != AppMode.STOPWATCH) && isStopwatchRunning,
                 onClick = {
-                    if (currentMode != AppMode.STOPWATCH) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onModeSelected(AppMode.STOPWATCH)
-                    }
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onModeSelected(AppMode.STOPWATCH)
                 },
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxHeight()
                     .debugTestTag("mode_stopwatch")
             )
         }
@@ -139,8 +157,10 @@ private fun ModeSegment(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Unselected label contrast raised to ~70% alpha monochrome white for clear legibility in both modes
+    val unselectedColor = PureWhite.copy(alpha = 0.70f)
     val textColor by animateColorAsState(
-        targetValue = if (isSelected) PureBlack else SubtleGray,
+        targetValue = if (isSelected) PureBlack else unselectedColor,
         animationSpec = tween(durationMillis = 180),
         label = "SegmentText"
     )
@@ -148,8 +168,6 @@ private fun ModeSegment(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .defaultMinSize(minWidth = 98.dp)
-            .clip(CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

@@ -23,7 +23,8 @@ import kotlinx.coroutines.isActive
 fun rememberStopwatchElapsedMillis(
     status: StopwatchStatus,
     startTime: Long,
-    accumulatedMillis: Long
+    accumulatedMillis: Long,
+    isVisible: Boolean = true
 ): State<Long> {
     val lifecycleOwner = LocalLifecycleOwner.current
     val isAppForeground = remember { mutableStateOf(true) }
@@ -52,10 +53,10 @@ fun rememberStopwatchElapsedMillis(
         )
     }
 
-    LaunchedEffect(status, startTime, accumulatedMillis, isAppForeground.value) {
+    LaunchedEffect(status, startTime, accumulatedMillis, isAppForeground.value, isVisible) {
         when (status) {
             StopwatchStatus.Running -> {
-                if (isAppForeground.value) {
+                if (isAppForeground.value && isVisible) {
                     while (isActive) {
                         withFrameNanos {
                             val now = SystemClock.elapsedRealtime()

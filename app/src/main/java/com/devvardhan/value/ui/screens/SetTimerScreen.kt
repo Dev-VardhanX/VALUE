@@ -34,6 +34,7 @@ import com.devvardhan.value.R
 import com.devvardhan.value.model.AppMode
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.AppIcons
+import com.devvardhan.value.ui.components.MainHeader
 import com.devvardhan.value.ui.components.ModeSwitch
 import com.devvardhan.value.ui.components.PrimaryPillButton
 import com.devvardhan.value.ui.components.WheelTimePicker
@@ -68,7 +69,6 @@ fun SetTimerScreen(
 ) {
     val totalSeconds = hours * 3600L + minutes * 60L + seconds
     val isStartEnabled = totalSeconds > 0L
-    val settingsDesc = stringResource(R.string.action_settings)
 
     BoxWithConstraints(
         modifier = modifier
@@ -77,214 +77,164 @@ fun SetTimerScreen(
     ) {
         val isLandscape = maxWidth > maxHeight * 1.15f
 
-        if (isLandscape) {
-            // Landscape layout: Pickers on left side, controls on right side
-            Row(
+        Column(modifier = Modifier.fillMaxSize()) {
+            MainHeader(
+                currentMode = currentMode,
+                isTimerRunning = false,
+                isStopwatchRunning = isStopwatchRunning,
+                onOpenSettings = onOpenSettings,
+                onFullscreenClick = {},
+                onModeSelected = onModeSelected,
+                progressProvider = { 0f },
+                fullscreenAlphaProvider = { 0f },
+                isLandscape = isLandscape
+            )
+
+            SetTimerContent(
+                hours = hours,
+                minutes = minutes,
+                seconds = seconds,
+                onHoursChange = onHoursChange,
+                onMinutesChange = onMinutesChange,
+                onSecondsChange = onSecondsChange,
+                onStartClick = onStartClick,
+                isStartEnabled = isStartEnabled,
+                isLandscape = isLandscape,
+                onWheelScrollStateChange = onWheelScrollStateChange,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * Pure body content for Set Timer: displays the title, the wheel pickers, and the Start button.
+ * Placed within the HorizontalPager below the fixed MainHeader.
+ */
+@Composable
+fun SetTimerContent(
+    hours: Int,
+    minutes: Int,
+    seconds: Int,
+    onHoursChange: (Int) -> Unit,
+    onMinutesChange: (Int) -> Unit,
+    onSecondsChange: (Int) -> Unit,
+    onStartClick: () -> Unit,
+    isStartEnabled: Boolean,
+    isLandscape: Boolean,
+    modifier: Modifier = Modifier,
+    onWheelScrollStateChange: (Boolean) -> Unit = {}
+) {
+    if (isLandscape) {
+        // Landscape layout: Pickers on left side, controls on right side
+        Row(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left side: WheelTimePicker centered
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1.1f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center
             ) {
-                // Left side: WheelTimePicker centered
-                Box(
-                    modifier = Modifier
-                        .weight(1.1f)
-                        .fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    WheelTimePicker(
-                        hours = hours,
-                        minutes = minutes,
-                        seconds = seconds,
-                        onHoursChange = onHoursChange,
-                        onMinutesChange = onMinutesChange,
-                        onSecondsChange = onSecondsChange,
-                        onScrollStateChange = onWheelScrollStateChange
-                    )
-                }
-
-                // Right side: Header row, Mode switch, Style label, start button
-                Column(
-                    modifier = Modifier
-                        .weight(0.9f)
-                        .fillMaxHeight()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Header row: VALUE wordmark on left, Settings button on right
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SubtleGray,
-                            letterSpacing = 3.sp
-                        )
-
-                        IconButton(
-                            onClick = onOpenSettings,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = settingsDesc }
-                                .debugTestTag("btn_settings")
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Settings,
-                                contentDescription = settingsDesc,
-                                tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    ModeSwitch(
-                        currentMode = currentMode,
-                        isTimerRunning = false,
-                        isStopwatchRunning = isStopwatchRunning,
-                        onModeSelected = onModeSelected,
-                        modifier = Modifier.width(200.dp)
-                    )
-
-                    Text(
-                        text = stringResource(R.string.set_timer_title),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Light,
-                        color = PureWhite,
-                        letterSpacing = 0.5.sp
-                    )
-
-                    PrimaryPillButton(
-                        text = stringResource(R.string.action_start),
-                        onClick = onStartClick,
-                        enabled = isStartEnabled,
-                        modifier = Modifier
-                            .fillMaxWidth(0.90f)
-                            .debugTestTag("btn_start_timer")
-                    )
-                }
+                WheelTimePicker(
+                    hours = hours,
+                    minutes = minutes,
+                    seconds = seconds,
+                    onHoursChange = onHoursChange,
+                    onMinutesChange = onMinutesChange,
+                    onSecondsChange = onSecondsChange,
+                    onScrollStateChange = onWheelScrollStateChange
+                )
             }
-        } else {
-            // Portrait layout:
-            // 1. Top row: VALUE wordmark on left, Style button on right
-            // 2. Directly below: ModeSwitch centered
-            // 3. Set Timer title
-            // 4. Large Pickers
-            // 5. Gap + Style label + Big Start button
+
+            // Right side: Set Timer title, start button
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .weight(0.9f)
+                    .fillMaxHeight()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Row 1: Wordmark on left, Settings button on right
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SubtleGray,
-                            letterSpacing = 3.sp
-                        )
+                Text(
+                    text = stringResource(R.string.set_timer_title),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Light,
+                    color = PureWhite,
+                    letterSpacing = 0.5.sp
+                )
 
-                        IconButton(
-                            onClick = onOpenSettings,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .border(1.dp, BorderSubtle, CircleShape)
-                                .semantics { contentDescription = settingsDesc }
-                                .debugTestTag("btn_settings")
-                        ) {
-                            Icon(
-                                imageVector = AppIcons.Settings,
-                                contentDescription = settingsDesc,
-                                tint = PureWhite,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Row 2: ModeSwitch directly below, centered
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        ModeSwitch(
-                            currentMode = currentMode,
-                            isTimerRunning = false,
-                            isStopwatchRunning = isStopwatchRunning,
-                            onModeSelected = onModeSelected,
-                            modifier = Modifier.width(216.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = stringResource(R.string.set_timer_title),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        color = PureWhite,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-
-                // Generously spaced WheelTimePicker
-                Box(
+                PrimaryPillButton(
+                    text = stringResource(R.string.action_start),
+                    onClick = onStartClick,
+                    enabled = isStartEnabled,
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    WheelTimePicker(
-                        hours = hours,
-                        minutes = minutes,
-                        seconds = seconds,
-                        onHoursChange = onHoursChange,
-                        onMinutesChange = onMinutesChange,
-                        onSecondsChange = onSecondsChange,
-                        onScrollStateChange = onWheelScrollStateChange,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
+                        .fillMaxWidth(0.90f)
+                        .debugTestTag("btn_start_timer")
+                )
+            }
+        }
+    } else {
+        // Portrait layout:
+        // 1. Set Timer title
+        // 2. Large Pickers
+        // 3. Big Start button
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Spacer(modifier = Modifier.height(6.dp))
 
-                // Bottom area: large Start button (no style or sound controls)
-                Box(
+            Text(
+                text = stringResource(R.string.set_timer_title),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Light,
+                color = PureWhite,
+                letterSpacing = 0.5.sp
+            )
+
+            // Generously spaced WheelTimePicker
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                WheelTimePicker(
+                    hours = hours,
+                    minutes = minutes,
+                    seconds = seconds,
+                    onHoursChange = onHoursChange,
+                    onMinutesChange = onMinutesChange,
+                    onSecondsChange = onSecondsChange,
+                    onScrollStateChange = onWheelScrollStateChange,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            // Bottom area: large Start button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                PrimaryPillButton(
+                    text = stringResource(R.string.action_start),
+                    onClick = onStartClick,
+                    enabled = isStartEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PrimaryPillButton(
-                        text = stringResource(R.string.action_start),
-                        onClick = onStartClick,
-                        enabled = isStartEnabled,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .debugTestTag("btn_start_timer"),
-                        height = 56.dp
-                    )
-                }
+                        .debugTestTag("btn_start_timer"),
+                    height = 56.dp
+                )
             }
         }
     }
