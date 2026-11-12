@@ -3,17 +3,26 @@ package com.devvardhan.value.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
@@ -34,6 +43,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -44,6 +54,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.devvardhan.value.R
+import com.devvardhan.value.core.FullscreenSizingHelper
 import com.devvardhan.value.model.StopwatchStatus
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.AppIcons
@@ -111,10 +122,25 @@ fun FullscreenStopwatchScreen(
         }
     }
 
-    // Manage immersive sticky mode
+    // Manage immersive sticky mode and display cutout mode
     DisposableEffect(Unit) {
         val window = context.findActivity()?.window
+        val prevCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window?.attributes?.layoutInDisplayCutoutMode
+        } else null
+
         if (window != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
             val controller = WindowCompat.getInsetsController(window, window.decorView)
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -124,11 +150,29 @@ fun FullscreenStopwatchScreen(
         onDispose {
             val win = context.findActivity()?.window
             if (win != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && prevCutoutMode != null) {
+                    win.attributes = win.attributes.apply {
+                        layoutInDisplayCutoutMode = prevCutoutMode
+                    }
+                }
                 val controller = WindowCompat.getInsetsController(win, win.decorView)
                 controller.show(WindowInsetsCompat.Type.systemBars())
             }
         }
     }
+
+    val displayCutout = WindowInsets.displayCutout.asPaddingValues()
+    val systemBars = WindowInsets.systemBars.asPaddingValues()
+    val layoutDirection = LocalLayoutDirection.current
+
+    val cutoutLeft = displayCutout.calculateLeftPadding(layoutDirection)
+    val cutoutRight = displayCutout.calculateRightPadding(layoutDirection)
+    val cutoutTop = displayCutout.calculateTopPadding()
+    val cutoutBottom = displayCutout.calculateBottomPadding()
+
+    val smallMargin = 16.dp
+    val symmetricHorizontalPadding = maxOf(cutoutLeft, cutoutRight) + smallMargin
+    val symmetricVerticalPadding = maxOf(cutoutTop, cutoutBottom) + smallMargin
 
     BoxWithConstraints(
         modifier = modifier
@@ -157,32 +201,51 @@ fun FullscreenStopwatchScreen(
             }
     ) {
         val isLandscape = maxWidth > maxHeight * 1.15f
+        val isThreeBoxOrFlip = FullscreenSizingHelper.isScaledTheme(theme)
 
-        // 1. Stopwatch visual: centered with reserved bottom clearance to prevent overlapping controls
+        // 1. Stopwatch visual: centered on the screen with symmetric cutout padding for Three Box and Flip Clock;
+        // other themes keep their original layout clearance
+        val visualPaddingStart = if (isThreeBoxOrFlip) symmetricHorizontalPadding else maxOf(cutoutLeft, systemBars.calculateStartPadding(layoutDirection)) + 16.dp
+        val visualPaddingEnd = if (isThreeBoxOrFlip) symmetricHorizontalPadding else maxOf(cutoutRight, systemBars.calculateEndPadding(layoutDirection)) + 16.dp
+        val visualPaddingTop = if (isThreeBoxOrFlip) symmetricVerticalPadding else maxOf(cutoutTop, systemBars.calculateTopPadding()) + (if (isLandscape) 12.dp else 24.dp)
+        val visualPaddingBottom = if (isThreeBoxOrFlip) symmetricVerticalPadding else maxOf(cutoutBottom, systemBars.calculateBottomPadding()) + (if (isLandscape) 72.dp else 96.dp)
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = if (isLandscape) 12.dp else 24.dp,
-                    bottom = if (isLandscape) 72.dp else 96.dp
+                    start = visualPaddingStart,
+                    end = visualPaddingEnd,
+                    top = visualPaddingTop,
+                    bottom = visualPaddingBottom
                 ),
             contentAlignment = Alignment.Center
         ) {
+            val visualModifier = if (isThreeBoxOrFlip) {
+                Modifier.fillMaxSize(FullscreenSizingHelper.FULLSCREEN_SCALE_THREE_BOX_FLIP)
+            } else {
+                Modifier.fillMaxSize()
+            }
+
             StopwatchVisual(
                 theme = theme,
                 elapsedMillisProvider = { liveElapsedMillisState.value },
                 status = status,
-                modifier = Modifier.fillMaxSize()
+                modifier = visualModifier
             )
         }
 
-        // 2. Exit fullscreen icon button (auto-hiding)
+        // 2. Exit fullscreen icon button (auto-hiding), safe from cutouts
+        val safeTop = maxOf(cutoutTop, systemBars.calculateTopPadding())
+        val safeEnd = maxOf(cutoutRight, systemBars.calculateEndPadding(layoutDirection))
+
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(24.dp)
+                .padding(
+                    top = safeTop + 24.dp,
+                    end = safeEnd + 24.dp
+                )
                 .graphicsLayer { alpha = controlsAlpha }
                 .semantics {
                     if (!areControlsVisible) {
@@ -211,7 +274,7 @@ fun FullscreenStopwatchScreen(
             }
         }
 
-        // 3. Compact bottom controls overlay (Flag | Start/Pause/Resume | Reset)
+        // 3. Compact bottom controls overlay (Flag | Start/Pause/Resume | Reset), safe from bottom cutouts/bars
         val bottomControlsWidth = if (isLandscape) {
             Modifier.width(360.dp)
         } else {
@@ -220,13 +283,16 @@ fun FullscreenStopwatchScreen(
                 .widthIn(max = 380.dp)
         }
 
+        val safeStart = maxOf(cutoutLeft, systemBars.calculateStartPadding(layoutDirection))
+        val safeBottom = maxOf(cutoutBottom, systemBars.calculateBottomPadding())
+
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(
-                    start = 24.dp,
-                    end = 24.dp,
-                    bottom = if (isLandscape) 16.dp else 32.dp
+                    start = safeStart + 24.dp,
+                    end = safeEnd + 24.dp,
+                    bottom = safeBottom + (if (isLandscape) 16.dp else 32.dp)
                 )
                 .then(bottomControlsWidth)
                 .graphicsLayer { alpha = controlsAlpha }

@@ -3,15 +3,24 @@ package com.devvardhan.value.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +39,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -40,6 +50,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.devvardhan.value.R
+import com.devvardhan.value.core.FullscreenSizingHelper
 import com.devvardhan.value.model.TimerStatus
 import com.devvardhan.value.model.TimerTheme
 import com.devvardhan.value.ui.components.AppIcons
@@ -100,10 +111,25 @@ fun FullscreenTimerScreen(
         }
     }
 
-    // Manage immersive system bars
+    // Manage immersive system bars and display cutout mode
     DisposableEffect(Unit) {
         val window = context.findActivity()?.window
+        val prevCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window?.attributes?.layoutInDisplayCutoutMode
+        } else null
+
         if (window != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
             val controller = WindowCompat.getInsetsController(window, window.decorView)
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -113,11 +139,29 @@ fun FullscreenTimerScreen(
         onDispose {
             val win = context.findActivity()?.window
             if (win != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && prevCutoutMode != null) {
+                    win.attributes = win.attributes.apply {
+                        layoutInDisplayCutoutMode = prevCutoutMode
+                    }
+                }
                 val controller = WindowCompat.getInsetsController(win, win.decorView)
                 controller.show(WindowInsetsCompat.Type.systemBars())
             }
         }
     }
+
+    val displayCutout = WindowInsets.displayCutout.asPaddingValues()
+    val systemBars = WindowInsets.systemBars.asPaddingValues()
+    val layoutDirection = LocalLayoutDirection.current
+
+    val cutoutLeft = displayCutout.calculateLeftPadding(layoutDirection)
+    val cutoutRight = displayCutout.calculateRightPadding(layoutDirection)
+    val cutoutTop = displayCutout.calculateTopPadding()
+    val cutoutBottom = displayCutout.calculateBottomPadding()
+
+    val smallMargin = 16.dp
+    val symmetricHorizontalPadding = maxOf(cutoutLeft, cutoutRight) + smallMargin
+    val symmetricVerticalPadding = maxOf(cutoutTop, cutoutBottom) + smallMargin
 
     Box(
         modifier = modifier
@@ -144,22 +188,45 @@ fun FullscreenTimerScreen(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Active visual scaled to the full viewport with safe minimal margins
-        TimerVisual(
-            theme = theme,
-            remainingMillisProvider = { liveRemainingMillisState.value },
-            totalMillis = totalMillis,
-            status = status,
+        // Safe container: symmetric padding ensures visual is exactly centered on the screen
+        // and stays clear of display cutouts in portrait and both landscape directions
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
-        )
+                .padding(
+                    start = symmetricHorizontalPadding,
+                    end = symmetricHorizontalPadding,
+                    top = symmetricVerticalPadding,
+                    bottom = symmetricVerticalPadding
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            val visualModifier = if (FullscreenSizingHelper.isScaledTheme(theme)) {
+                Modifier.fillMaxSize(FullscreenSizingHelper.FULLSCREEN_SCALE_THREE_BOX_FLIP)
+            } else {
+                Modifier.fillMaxSize()
+            }
 
-        // Exit fullscreen icon button (auto-hides after 3 seconds, 300ms fade)
+            TimerVisual(
+                theme = theme,
+                remainingMillisProvider = { liveRemainingMillisState.value },
+                totalMillis = totalMillis,
+                status = status,
+                modifier = visualModifier
+            )
+        }
+
+        // Exit fullscreen icon button (auto-hides after 3 seconds, 300ms fade), inside safe area
+        val safeTop = maxOf(cutoutTop, systemBars.calculateTopPadding())
+        val safeEnd = maxOf(cutoutRight, systemBars.calculateEndPadding(layoutDirection))
+
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(24.dp)
+                .padding(
+                    top = safeTop + 24.dp,
+                    end = safeEnd + 24.dp
+                )
                 .graphicsLayer { alpha = exitIconAlpha }
                 .semantics {
                     if (!isExitIconVisible) {
