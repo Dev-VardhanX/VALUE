@@ -157,8 +157,6 @@ fun HourglassTimerTheme(
             AdaptiveLayoutHelper.calculateHourglassDimensions(maxWidth.value, maxHeight.value, layoutMode)
         }
         // add this import: import kotlin.math.pow
-
-
         val hourglassCanvas = @Composable {
             // Preallocated tables: no allocations while drawing
             val topYs = remember { FloatArray(SAND_SAMPLES + 1) }
@@ -183,14 +181,20 @@ fun HourglassTimerTheme(
                 val h = size.height
 
                 // Hourglass geometric proportions
-                val neckWidth = (w * 0.09f).coerceIn(6f, 16f)
+                val neckWidth = (w * 0.09f).coerceIn(6f, 6f)
                 val neckHeight = (h * 0.05f).coerceIn(6f, 18f)
                 val neckTopY = (h - neckHeight) / 2f
                 val neckBottomY = neckTopY + neckHeight
 
-                val plateExtra = w * 0.08f
                 val strokeThickness = 1.5.dp.toPx()
+
+                // THINNER HOURGLASS: bigger inset = narrower bulbs (was 0.06f)
                 val rimInset = w * 0.06f
+                // Plates stick out slightly past the glass on each side
+                val plateOverhang = w * 0.05f
+
+                // STREAM WIDTH: fraction of the neck width (0.8f = almost fills the neck)
+                val streamWidth = neckWidth * 0.8f
 
                 // 1. Glass path
                 glassPath.reset()
@@ -221,19 +225,19 @@ fun HourglassTimerTheme(
                 )
                 glassPath.close()
 
-                // 2. End plates
+                // 2. End plates (follow the glass width)
                 val plateThickness = 2.5.dp.toPx()
                 drawLine(
                     color = PureWhite,
-                    start = Offset(-plateExtra, 0f),
-                    end = Offset(w + plateExtra, 0f),
+                    start = Offset(rimInset - plateOverhang, 0f),
+                    end = Offset(w - rimInset + plateOverhang, 0f),
                     strokeWidth = plateThickness,
                     cap = StrokeCap.Round
                 )
                 drawLine(
                     color = PureWhite,
-                    start = Offset(-plateExtra, h),
-                    end = Offset(w + plateExtra, h),
+                    start = Offset(rimInset - plateOverhang, h),
+                    end = Offset(w - rimInset + plateOverhang, h),
                     strokeWidth = plateThickness,
                     cap = StrokeCap.Round
                 )
@@ -269,7 +273,10 @@ fun HourglassTimerTheme(
                 clipPath(glassPath) {
                     // --- TOP SAND ---
                     if (progress > 0f) {
-                        val dip = if (isRunning && progress in 0.05f..0.95f) 3.dp.toPx() else 0f
+                        // Fade the crater in at the start and out near the end, so it never snaps
+                        val fadeIn = ((1f - progress) / 0.08f).coerceIn(0f, 1f)   // 0 at the very start -> 1 after 8%
+                        val fadeOut = (progress / 0.15f).coerceIn(0f, 1f)         // 1 until the last 15% -> 0 at empty
+                        val dip = 3.dp.toPx() * fadeIn * fadeOut
 
                         topSandPath.reset()
                         topSandPath.moveTo(0f, topSandLevelY)
@@ -312,7 +319,7 @@ fun HourglassTimerTheme(
                         }
                     }
 
-                    // --- FALLING STREAM ---
+                    // --- FALLING STREAM (wider, Butt cap so the width is exact) ---
                     if (isRunning) {
                         val streamEndY = moundPeakY.coerceIn(neckBottomY, h)
 
@@ -320,19 +327,23 @@ fun HourglassTimerTheme(
                             color = PureWhite,
                             start = Offset(w / 2f, neckTopY - 2f),
                             end = Offset(w / 2f, streamEndY),
-                            strokeWidth = 1.8.dp.toPx(),
-                            cap = StrokeCap.Round
+                            strokeWidth = streamWidth,
+                            cap = StrokeCap.Butt
                         )
 
                         val elapsed = (totalMillis - rem).coerceAtLeast(0L)
-                        val loopProgress1 = (elapsed % 300L) / 300f
-                        val loopProgress2 = ((elapsed + 150L) % 300L) / 300f
+                        val grainPeriodMs = 950L
+
+                        val loopProgress1 = (elapsed % grainPeriodMs) / grainPeriodMs.toFloat()
+                        val loopProgress2 = ((elapsed + grainPeriodMs / 2) % grainPeriodMs) / grainPeriodMs.toFloat()
 
                         val grain1Y = neckTopY + (streamEndY - neckTopY) * loopProgress1
                         val grain2Y = neckTopY + (streamEndY - neckTopY) * loopProgress2
 
-                        drawCircle(PureWhite, radius = 1.2.dp.toPx(), center = Offset(w / 2f - 1.2f, grain1Y))
-                        drawCircle(PureWhite, radius = 1.2.dp.toPx(), center = Offset(w / 2f + 1.2f, grain2Y))
+                        // Grains scale with the stream so they stay visible
+                        val grainR = streamWidth * 0.6f
+                        drawCircle(PureWhite, radius = grainR, center = Offset(w / 2f - grainR, grain1Y))
+                        drawCircle(PureWhite, radius = grainR, center = Offset(w / 2f + grainR, grain2Y))
                     }
                 }
 
@@ -344,6 +355,192 @@ fun HourglassTimerTheme(
                 )
             }
         }
+
+//        val hourglassCanvas = @Composable {
+//            // Preallocated tables: no allocations while drawing
+//            val topYs = remember { FloatArray(SAND_SAMPLES + 1) }
+//            val topCum = remember { FloatArray(SAND_SAMPLES + 1) }
+//            val botYs = remember { FloatArray(SAND_SAMPLES + 1) }
+//            val botCum = remember { FloatArray(SAND_SAMPLES + 1) }
+//            val topPx = remember { FloatArray(4) }
+//            val topPy = remember { FloatArray(4) }
+//            val botPx = remember { FloatArray(4) }
+//            val botPy = remember { FloatArray(4) }
+//
+//            Canvas(
+//                modifier = Modifier.size(width = dims.width.dp, height = dims.height.dp)
+//            ) {
+//                val rem = remainingMillisProvider()
+//                val progress = ThemeFractionCalculator
+//                    .calculateOverallProgress(rem, totalMillis)
+//                    .coerceIn(0f, 1f)
+//                val isRunning = status == TimerStatus.Running && rem > 0L
+//
+//                val w = size.width
+//                val h = size.height
+//
+//                // Hourglass geometric proportions
+//                val neckWidth = (w * 0.09f).coerceIn(6f, 16f)
+//                val neckHeight = (h * 0.05f).coerceIn(6f, 18f)
+//                val neckTopY = (h - neckHeight) / 2f
+//                val neckBottomY = neckTopY + neckHeight
+//
+//                val plateExtra = w * 0.08f
+//                val strokeThickness = 1.5.dp.toPx()
+//                val rimInset = w * 0.06f
+//
+//                // 1. Glass path
+//                glassPath.reset()
+//                glassPath.moveTo(rimInset, 0f)
+//                glassPath.lineTo(w - rimInset, 0f)
+//                glassPath.cubicTo(
+//                    w - rimInset, neckTopY * 0.35f,
+//                    (w + neckWidth) / 2f + 4f, neckTopY * 0.85f,
+//                    (w + neckWidth) / 2f, neckTopY
+//                )
+//                glassPath.lineTo((w + neckWidth) / 2f, neckBottomY)
+//                glassPath.cubicTo(
+//                    (w + neckWidth) / 2f + 4f, neckBottomY + (h - neckBottomY) * 0.15f,
+//                    w - rimInset, neckBottomY + (h - neckBottomY) * 0.65f,
+//                    w - rimInset, h
+//                )
+//                glassPath.lineTo(rimInset, h)
+//                glassPath.cubicTo(
+//                    rimInset, neckBottomY + (h - neckBottomY) * 0.65f,
+//                    (w - neckWidth) / 2f - 4f, neckBottomY + (h - neckBottomY) * 0.15f,
+//                    (w - neckWidth) / 2f, neckBottomY
+//                )
+//                glassPath.lineTo((w - neckWidth) / 2f, neckTopY)
+//                glassPath.cubicTo(
+//                    (w - neckWidth) / 2f - 4f, neckTopY * 0.85f,
+//                    rimInset, neckTopY * 0.35f,
+//                    rimInset, 0f
+//                )
+//                glassPath.close()
+//
+//                // 2. End plates
+//                val plateThickness = 2.5.dp.toPx()
+//                drawLine(
+//                    color = PureWhite,
+//                    start = Offset(-plateExtra, 0f),
+//                    end = Offset(w + plateExtra, 0f),
+//                    strokeWidth = plateThickness,
+//                    cap = StrokeCap.Round
+//                )
+//                drawLine(
+//                    color = PureWhite,
+//                    start = Offset(-plateExtra, h),
+//                    end = Offset(w + plateExtra, h),
+//                    strokeWidth = plateThickness,
+//                    cap = StrokeCap.Round
+//                )
+//
+//                // ---- Volume-based sand levels (top and bottom always match) ----
+//                val elapsedFraction = 1f - progress
+//                val botH = h - neckBottomY
+//
+//                // Top bulb edge, starting at the neck going up to the rim
+//                topPx[0] = (w + neckWidth) / 2f;       topPy[0] = neckTopY
+//                topPx[1] = (w + neckWidth) / 2f + 4f;  topPy[1] = neckTopY * 0.85f
+//                topPx[2] = w - rimInset;               topPy[2] = neckTopY * 0.35f
+//                topPx[3] = w - rimInset;               topPy[3] = 0f
+//                fillSandTable(w, topPx, topPy, topYs, topCum)
+//
+//                // Bottom bulb edge, starting at the bottom rim going up to the neck
+//                botPx[0] = w - rimInset;               botPy[0] = h
+//                botPx[1] = w - rimInset;               botPy[1] = neckBottomY + botH * 0.65f
+//                botPx[2] = (w + neckWidth) / 2f + 4f;  botPy[2] = neckBottomY + botH * 0.15f
+//                botPx[3] = (w + neckWidth) / 2f;       botPy[3] = neckBottomY
+//                fillSandTable(w, botPx, botPy, botYs, botCum)
+//
+//                val topSandLevelY = levelFromTable(topYs, topCum, progress)
+//                val bottomLevelY = levelFromTable(botYs, botCum, elapsedFraction)
+//
+//                // Bottom pile: peaked early, flat when full
+//                val depth = h - bottomLevelY
+//                val moundAmp = depth * 0.35f * (1f - elapsedFraction * elapsedFraction * elapsedFraction)
+//                val moundPeakY = bottomLevelY - moundAmp * 0.3f
+//                val moundEdgeY = bottomLevelY + moundAmp * 0.7f
+//
+//                // 3. Sand, clipped to the glass
+//                clipPath(glassPath) {
+//                    // --- TOP SAND ---
+//                    if (progress > 0f) {
+//                        val dip = if (isRunning && progress in 0.05f..0.95f) 3.dp.toPx() else 0f
+//
+//                        topSandPath.reset()
+//                        topSandPath.moveTo(0f, topSandLevelY)
+//                        topSandPath.quadraticTo(w / 2f, topSandLevelY + dip * 2f, w, topSandLevelY)
+//                        topSandPath.lineTo(w, neckBottomY)
+//                        topSandPath.lineTo(0f, neckBottomY)
+//                        topSandPath.close()
+//
+//                        drawPath(topSandPath, color = PureWhite)
+//                    }
+//
+//                    // --- BOTTOM SAND ---
+//                    if (elapsedFraction > 0f) {
+//                        // quadratic midpoint = (edge + control) / 2, so compensate to hit the peak
+//                        val controlY = 2f * moundPeakY - moundEdgeY
+//
+//                        bottomSandPath.reset()
+//                        bottomSandPath.moveTo(0f, h)
+//                        bottomSandPath.lineTo(w, h)
+//                        bottomSandPath.lineTo(w, moundEdgeY)
+//                        bottomSandPath.quadraticTo(w / 2f, controlY, 0f, moundEdgeY)
+//                        bottomSandPath.close()
+//
+//                        drawPath(bottomSandPath, color = PureWhite)
+//                    }
+//
+//                    // --- GRAIN TEXTURE (only where sand exists) ---
+//                    val grainColor = Color(0x28000000)
+//                    val grainRadius = 0.9.dp.toPx()
+//                    for (i in PRECOMPUTED_GRAIN_X.indices) {
+//                        val gx = PRECOMPUTED_GRAIN_X[i] * w
+//                        val gyTop = neckTopY * PRECOMPUTED_GRAIN_Y[i]
+//                        val gyBottom = neckBottomY + botH * PRECOMPUTED_GRAIN_Y[i]
+//
+//                        if (progress > 0f && gyTop >= topSandLevelY) {
+//                            drawCircle(grainColor, radius = grainRadius, center = Offset(gx, gyTop))
+//                        }
+//                        if (elapsedFraction > 0f && gyBottom >= bottomLevelY) {
+//                            drawCircle(grainColor, radius = grainRadius, center = Offset(gx, gyBottom))
+//                        }
+//                    }
+//
+//                    // --- FALLING STREAM ---
+//                    if (isRunning) {
+//                        val streamEndY = moundPeakY.coerceIn(neckBottomY, h)
+//
+//                        drawLine(
+//                            color = PureWhite,
+//                            start = Offset(w / 2f, neckTopY - 2f),
+//                            end = Offset(w / 2f, streamEndY),
+//                            strokeWidth = 1.8.dp.toPx(),
+//                            cap = StrokeCap.Round
+//                        )
+//
+//                        val elapsed = (totalMillis - rem).coerceAtLeast(0L)
+//                        val loopProgress1 = (elapsed % 300L) / 300f
+//                        val loopProgress2 = ((elapsed + 150L) % 300L) / 300f
+//
+//                        val grain1Y = neckTopY + (streamEndY - neckTopY) * loopProgress1
+//                        val grain2Y = neckTopY + (streamEndY - neckTopY) * loopProgress2
+//
+//                        drawCircle(PureWhite, radius = 1.2.dp.toPx(), center = Offset(w / 2f - 1.2f, grain1Y))
+//                        drawCircle(PureWhite, radius = 1.2.dp.toPx(), center = Offset(w / 2f + 1.2f, grain2Y))
+//                    }
+//                }
+//
+//                // 4. Glass outline
+//                drawPath(
+//                    path = glassPath,
+//                    color = BorderSubtle,
+//                    style = Stroke(width = strokeThickness)
+//                )
+//            }
+//        }
 //        val hourglassCanvas = @Composable {
 //            Canvas(
 //                modifier = Modifier.size(width = dims.width.dp, height = dims.height.dp)
