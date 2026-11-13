@@ -268,7 +268,7 @@ private fun SettingsNavRow(
         ) {
             if (value.isNotEmpty()) {
                 Text(
-                    text = value,
+                     text = value,
                     fontSize = 14.sp,
                     color = SubtleGray,
                     maxLines = 1,
