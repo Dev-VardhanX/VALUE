@@ -1,21 +1,12 @@
 package com.devvardhan.value
 
-import android.content.Context
-import android.content.ContextWrapper
-import com.devvardhan.value.core.ValueToneGenerator
 import com.devvardhan.value.model.AlarmSound
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
-import java.io.File
-import java.io.FileInputStream
 
 class AlarmSoundTest {
-
-    @get:Rule
-    val tempFolder = TemporaryFolder()
 
     @Test
     fun testFindByIdPhoneDefault() {
@@ -28,6 +19,24 @@ class AlarmSoundTest {
         for (tone in AlarmSound.BUILT_IN_TONES) {
             val found = AlarmSound.findById(tone.id, emptyList())
             assertEquals(tone, found)
+        }
+    }
+
+    @Test
+    fun testBuiltInTonesContents() {
+        val expectedKeys = listOf("blast", "flow", "piece", "who", "wind")
+        assertEquals(expectedKeys.size, AlarmSound.BUILT_IN_TONES.size)
+        val actualKeys = AlarmSound.BUILT_IN_TONES.map { it.toneKey }
+        assertEquals(expectedKeys, actualKeys)
+
+        val expectedTitles = listOf("Blast", "Flow", "Piece", "Who", "Wind")
+        val actualTitles = AlarmSound.BUILT_IN_TONES.map { it.title }
+        assertEquals(expectedTitles, actualTitles)
+
+        for (tone in AlarmSound.BUILT_IN_TONES) {
+            assertTrue("ID should start with builtin_", tone.id.startsWith("builtin_"))
+            assertTrue("Title should be non-empty", tone.title.isNotEmpty())
+            assertNotEquals("rawResId should be set", 0, tone.rawResId)
         }
     }
 
@@ -46,28 +55,5 @@ class AlarmSoundTest {
     fun testFindByIdUnknownFallsBackToPhoneDefault() {
         val found = AlarmSound.findById("unknown_sound_id", emptyList())
         assertEquals(AlarmSound.PhoneDefault, found)
-    }
-
-    @Test
-    fun testValueToneGeneratorGeneratesValidWavFiles() {
-        val mockCacheDir = tempFolder.newFolder("cache")
-        val mockContext = object : ContextWrapper(null) {
-            override fun getCacheDir(): File = mockCacheDir
-        }
-
-        val tones = listOf("chime", "digital", "radar", "pulse", "bell")
-        for (tone in tones) {
-            val file = ValueToneGenerator.getToneFile(mockContext, tone)
-            assertTrue("File for $tone should exist", file.exists())
-            assertTrue("File for $tone should be non-empty", file.length() > 1000)
-
-            // Validate RIFF WAV header
-            val header = ByteArray(12)
-            FileInputStream(file).use { it.read(header) }
-            val riff = String(header, 0, 4)
-            val wave = String(header, 8, 4)
-            assertEquals("RIFF", riff)
-            assertEquals("WAVE", wave)
-        }
     }
 }

@@ -71,7 +71,7 @@ import kotlinx.coroutines.withContext
  * Sound selection and preview screen for timer alarms.
  * Strict monochrome aesthetic with three sound groups:
  * 1. DEFAULT (Phone default)
- * 2. VALUE TONES (Procedural 16-bit PCM WAV: Chime, Digital, Radar, Pulse, Bell)
+ * 2. VALUE TONES (Built-in audio tunes: Blast, Flow, Piece, Who, Wind)
  * 3. MY SOUNDS (Imported local audio files via SAF + Add from phone)
  */
 @Composable
@@ -440,7 +440,7 @@ private const val TAG = "SoundScreen"
 private fun PreviewSoundScreenPortrait() {
     ValueTimerTheme {
         SoundScreen(
-            selectedSoundId = "builtin_chime",
+            selectedSoundId = "builtin_blast",
             importedSounds = listOf(
                 AlarmSound.UserSound("uri://sample1", "Gentle Rain.mp3")
             ),
@@ -470,7 +470,7 @@ private fun PreviewSoundScreenLandscape() {
 private fun PreviewSoundScreenTablet() {
     ValueTimerTheme {
         SoundScreen(
-            selectedSoundId = "builtin_pulse",
+            selectedSoundId = "builtin_who",
             importedSounds = listOf(
                 AlarmSound.UserSound("uri://sample1", "Morning Breeze.wav"),
                 AlarmSound.UserSound("uri://sample2", "Soft Bells.ogg")

@@ -1,9 +1,12 @@
 package com.devvardhan.value.model
 
+import androidx.annotation.RawRes
+import com.devvardhan.value.R
+
 /**
  * Models alarm sounds available in VALUE:
  * 1. Default (System alarm ringtone)
- * 2. Value Tones (Procedural built-in minimalist tones)
+ * 2. Value Tones (Built-in audio tunes)
  * 3. My Sounds (Imported local audio files via Storage Access Framework)
  */
 sealed class AlarmSound(
@@ -16,11 +19,12 @@ sealed class AlarmSound(
     data object PhoneDefault : AlarmSound(ID_PHONE_DEFAULT, "Phone default")
 
     /**
-     * Built-in synthesized minimalist tones
+     * Built-in audio tunes
      */
     data class BuiltInTone(
         val toneKey: String,
-        val title: String
+        val title: String,
+        @param:RawRes val rawResId: Int = 0
     ) : AlarmSound("builtin_$toneKey", title)
 
     /**
@@ -37,11 +41,11 @@ sealed class AlarmSound(
         const val ID_PHONE_DEFAULT = "phone_default"
 
         val BUILT_IN_TONES = listOf(
-            BuiltInTone("chime", "Chime"),
-            BuiltInTone("digital", "Digital"),
-            BuiltInTone("radar", "Radar"),
-            BuiltInTone("pulse", "Pulse"),
-            BuiltInTone("bell", "Bell")
+            BuiltInTone("blast", "Blast", R.raw.blast),
+            BuiltInTone("flow", "Flow", R.raw.flow),
+            BuiltInTone("piece", "Piece", R.raw.piece),
+            BuiltInTone("who", "Who", R.raw.who),
+            BuiltInTone("wind", "Wind", R.raw.wind)
         )
 
         fun findById(id: String, importedSounds: List<UserSound>): AlarmSound {

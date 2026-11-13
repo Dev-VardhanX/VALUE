@@ -24,8 +24,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import java.io.File
-import java.io.FileInputStream
 
 /**
  * Handles playing the alarm sound with audio focus acquisition, gradual volume ramp-up,
@@ -153,10 +151,16 @@ class AlarmSoundManager(private val context: Context) {
     private fun setDataSourceForSound(player: MediaPlayer, soundId: String) {
         when {
             soundId.startsWith("builtin_") -> {
-                val toneKey = soundId.removePrefix("builtin_")
-                val file = ValueToneGenerator.getToneFile(context, toneKey)
-                FileInputStream(file).use { fis ->
-                    player.setDataSource(fis.fd)
+                val tone = AlarmSound.BUILT_IN_TONES.find { it.id == soundId }
+                if (tone != null && tone.rawResId != 0) {
+                    context.resources.openRawResourceFd(tone.rawResId)?.use { afd ->
+                        player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    }
+                } else {
+                    val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                    player.setDataSource(context, defaultUri)
                 }
             }
             soundId == AlarmSound.ID_PHONE_DEFAULT -> {

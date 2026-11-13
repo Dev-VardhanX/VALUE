@@ -386,7 +386,7 @@ private fun PreviewSettingsPortrait() {
         SettingsScreen(
             timerStyleName = "Hourglass",
             stopwatchStyleName = "Concentric Rings",
-            alarmSoundName = "Chime",
+            alarmSoundName = "Blast",
             vibrationEnabled = true,
             gradualVolumeEnabled = false,
             onOpenTimerStyle = {},
@@ -406,7 +406,7 @@ private fun PreviewSettingsLandscape() {
         SettingsScreen(
             timerStyleName = "Hourglass",
             stopwatchStyleName = "Concentric Rings",
-            alarmSoundName = "Chime",
+            alarmSoundName = "Blast",
             vibrationEnabled = true,
             gradualVolumeEnabled = true,
             onOpenTimerStyle = {},
