@@ -1,9 +1,5 @@
 package com.devvardhan.value.ui.screens
 
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.widget.Toast
-import androidx.core.net.toUri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -44,7 +40,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.devvardhan.value.R
-import com.devvardhan.value.core.AppConfig
 import com.devvardhan.value.ui.components.AppIcons
 import com.devvardhan.value.ui.theme.BorderSubtle
 import com.devvardhan.value.ui.theme.PureBlack
@@ -67,6 +62,7 @@ fun SettingsScreen(
     onOpenTimerStyle: () -> Unit,
     onOpenStopwatchStyle: () -> Unit,
     onOpenSoundSettings: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
     onVibrationToggle: (Boolean) -> Unit,
     onGradualVolumeToggle: (Boolean) -> Unit,
     onBack: () -> Unit,
@@ -74,7 +70,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val noBrowserError = stringResource(R.string.error_no_browser)
 
     val versionName = remember {
         try {
@@ -187,14 +182,7 @@ fun SettingsScreen(
             SettingsNavRow(
                 label = stringResource(R.string.settings_privacy_policy),
                 value = "",
-                onClick = {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW, AppConfig.PRIVACY_POLICY_URL.toUri())
-                        context.startActivity(intent)
-                    } catch (e: ActivityNotFoundException) {
-                        Toast.makeText(context, noBrowserError, Toast.LENGTH_SHORT).show()
-                    }
-                },
+                onClick = onOpenPrivacyPolicy,
                 testTag = "row_privacy_policy"
             )
 
@@ -392,6 +380,7 @@ private fun PreviewSettingsPortrait() {
             onOpenTimerStyle = {},
             onOpenStopwatchStyle = {},
             onOpenSoundSettings = {},
+            onOpenPrivacyPolicy = {},
             onVibrationToggle = {},
             onGradualVolumeToggle = {},
             onBack = {}
@@ -412,6 +401,7 @@ private fun PreviewSettingsLandscape() {
             onOpenTimerStyle = {},
             onOpenStopwatchStyle = {},
             onOpenSoundSettings = {},
+            onOpenPrivacyPolicy = {},
             onVibrationToggle = {},
             onGradualVolumeToggle = {},
             onBack = {}
@@ -432,6 +422,7 @@ private fun PreviewSettingsTablet() {
             onOpenTimerStyle = {},
             onOpenStopwatchStyle = {},
             onOpenSoundSettings = {},
+            onOpenPrivacyPolicy = {},
             onVibrationToggle = {},
             onGradualVolumeToggle = {},
             onBack = {}

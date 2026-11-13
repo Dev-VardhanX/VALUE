@@ -63,7 +63,6 @@
     <string name="sound_volume_off_hint">Alarm volume is off</string>
     <string name="error_local_files_only">Pick a file stored on this phone</string>
     <string name="error_invalid_audio">Selected file is not valid audio</string>
-    <string name="error_no_browser">No web browser found to open link</string>
     <string name="action_select">Select</string>
     <string name="action_selected">Selected</string>
     <string name="action_stop_preview">Stop preview</string>
@@ -71,4 +70,30 @@
     <string name="action_close">Close</string>
     <string name="style_prefix">Style: %s</string>
     <string name="press_back_again_to_exit">Press back again to exit</string>
+
+    <!-- Privacy Policy -->
+    <string name="privacy_title">Privacy Policy for VALUE</string>
+    <string name="privacy_effective_date">Effective date: November 13, 2026</string>
+    <string name="privacy_intro">VALUE (\"the app\") is a timer and stopwatch app for Android, developed by Dev Vardhan.</string>
+    <string name="privacy_section_summary">Summary</string>
+    <string name="privacy_summary_body">VALUE does not collect, share or sell any personal information. The app works entirely on your device and does not need an internet connection.</string>
+    <string name="privacy_section_info_not_collected">Information we do not collect</string>
+    <string name="privacy_info_not_collected_body">We do not collect your name, email, location, contacts, device identifiers, advertising ID, usage statistics or crash reports. The app has no accounts, no ads and no analytics or tracking tools, and it does not request the internet permission.</string>
+    <string name="privacy_section_data_stored">Data stored on your device</string>
+    <string name="privacy_data_stored_body">To work properly, the app saves some information locally on your phone: your chosen styles, your chosen alarm sound, vibration and sound options, the last timer duration you used, and the state of a running timer or stopwatch, including laps, so it can continue after the app is closed. This data never leaves your device. It is deleted when you clear the app\'s data or uninstall the app.</string>
+    <string name="privacy_section_alarm_sounds">Alarm sounds you add</string>
+    <string name="privacy_alarm_sounds_body">If you add your own sound, the app uses Android\'s file picker and remembers the location of the file you selected so it can play it as your alarm. The file is not copied, uploaded or shared, and the app cannot access any file you did not select.</string>
+    <string name="privacy_section_permissions">Permissions</string>
+    <string name="privacy_perm_notifications">Notifications: to show a running timer or stopwatch and to alert you when a timer ends.</string>
+    <string name="privacy_perm_vibration">Vibration: for alarm vibration and touch feedback.</string>
+    <string name="privacy_perm_foreground">Foreground service and wake lock: to keep the timer and stopwatch accurate while the app is in the background or the screen is off.</string>
+    <string name="privacy_perm_exact_alarms">Exact alarms: so that your timer ends at the right time.</string>
+    <string name="privacy_perm_fullscreen_alerts">Full-screen alerts: to display the alarm screen when a timer finishes while the phone is locked.</string>
+    <string name="privacy_permissions_closing">None of these permissions is used to collect data.</string>
+    <string name="privacy_section_children">Children</string>
+    <string name="privacy_children_body">The app does not collect personal information from anyone, including children.</string>
+    <string name="privacy_section_changes">Changes to this policy</string>
+    <string name="privacy_changes_body">If this policy changes, the new version will be published in the app and at the public address of this policy with an updated date.</string>
+    <string name="privacy_section_contact">Contact</string>
+    <string name="privacy_contact_body">If you have questions, contact dev0vardhan@gmail.com.</string>
 </resources>

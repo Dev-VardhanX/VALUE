@@ -9,7 +9,7 @@ class BackPressHandlerTest {
 
     @Test
     fun testSubpageDismissesToSettings() {
-        // Subpage (Timer Style Gallery edit mode, Stopwatch Style Gallery edit mode, Sound screen)
+        // Subpage (Timer Style Gallery edit mode, Stopwatch Style Gallery edit mode, Sound screen, Privacy Policy)
         // returns to Settings screen
         val (action, _) = BackPressHandlerLogic.decideBackAction(
             isFullscreen = false,
@@ -17,6 +17,22 @@ class BackPressHandlerTest {
             isSubpageOpen = true,
             isSettingsOpen = false,
             isTimerRunningOrPaused = false,
+            isStopwatchRunningOrPaused = false,
+            lastBackPressTimeMs = 0L,
+            currentTimeMs = 1000L
+        )
+        assertEquals(BackAction.DISMISS_SUBPAGE_TO_SETTINGS, action)
+    }
+
+    @Test
+    fun testPrivacyPolicySubpageDismissesToSettings() {
+        // Privacy Policy subpage back press always returns to Settings screen
+        val (action, _) = BackPressHandlerLogic.decideBackAction(
+            isFullscreen = false,
+            isFirstLaunchGallery = false,
+            isSubpageOpen = true,
+            isSettingsOpen = false,
+            isTimerRunningOrPaused = true,
             isStopwatchRunningOrPaused = false,
             lastBackPressTimeMs = 0L,
             currentTimeMs = 1000L

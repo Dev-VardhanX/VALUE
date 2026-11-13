@@ -16,7 +16,7 @@ enum class BackAction {
 
 /**
  * Pure decision logic for system and gesture back navigation across all navigation levels:
- * Subpage (Gallery in edit mode, Sound) -> Settings -> Main
+ * Subpage (Gallery in edit mode, Sound, Privacy Policy) -> Settings -> Main
  */
 object BackPressHandlerLogic {
 
@@ -51,7 +51,7 @@ object BackPressHandlerLogic {
             }
         }
 
-        // 3. Sub-page level (Timer Style Gallery, Stopwatch Style Gallery, Sound screen):
+        // 3. Sub-page level (Timer Style Gallery, Stopwatch Style Gallery, Sound screen, Privacy Policy screen):
         //    Always goes up exactly one level to Settings.
         if (isSubpageOpen) {
             return BackAction.DISMISS_SUBPAGE_TO_SETTINGS to lastBackPressTimeMs

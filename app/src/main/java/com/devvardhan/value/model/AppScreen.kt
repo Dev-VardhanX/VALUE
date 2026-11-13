@@ -7,6 +7,7 @@ enum class AppScreen {
     MAIN,
     SETTINGS,
     SOUND,
-    GALLERY
+    GALLERY,
+    PRIVACY_POLICY
 }
 

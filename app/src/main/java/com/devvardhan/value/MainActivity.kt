@@ -75,6 +75,7 @@ import com.devvardhan.value.service.StopwatchService
 import com.devvardhan.value.ui.screens.FinishedTimerScreen
 import com.devvardhan.value.ui.screens.FullscreenStopwatchScreen
 import com.devvardhan.value.ui.screens.FullscreenTimerScreen
+import com.devvardhan.value.ui.screens.PrivacyPolicyScreen
 import com.devvardhan.value.ui.screens.RunningTimerScreen
 import com.devvardhan.value.ui.screens.SetTimerScreen
 import com.devvardhan.value.ui.screens.SettingsScreen
@@ -115,7 +116,7 @@ import kotlinx.coroutines.launch
 private fun getScreenLevel(screen: AppScreen): Int = when (screen) {
     AppScreen.MAIN -> 0
     AppScreen.SETTINGS -> 1
-    AppScreen.GALLERY, AppScreen.SOUND -> 2
+    AppScreen.GALLERY, AppScreen.SOUND, AppScreen.PRIVACY_POLICY -> 2
 }
 
 class MainActivity : ComponentActivity() {
@@ -338,7 +339,9 @@ fun ValueApp(
     val isFullscreen = (appMode == AppMode.STOPWATCH && stopwatchState.isFullscreen) ||
         (appMode == AppMode.TIMER && timerState.isFullscreen && timerState.status != TimerStatus.Finished)
     val isFirstLaunchGallery = hasChosenStyle != true && currentScreen == AppScreen.GALLERY
-    val isSubpageOpen = (currentScreen == AppScreen.GALLERY && hasChosenStyle == true) || currentScreen == AppScreen.SOUND
+    val isSubpageOpen = (currentScreen == AppScreen.GALLERY && hasChosenStyle == true) ||
+        currentScreen == AppScreen.SOUND ||
+        currentScreen == AppScreen.PRIVACY_POLICY
     val isSettingsOpen = currentScreen == AppScreen.SETTINGS
     val isGalleryOpen = currentScreen == AppScreen.GALLERY
     val isTimerRunningOrPaused = timerState.status == TimerStatus.Running || timerState.status == TimerStatus.Paused
@@ -522,6 +525,9 @@ fun ValueApp(
                             onOpenSoundSettings = {
                                 currentScreen = AppScreen.SOUND
                             },
+                            onOpenPrivacyPolicy = {
+                                currentScreen = AppScreen.PRIVACY_POLICY
+                            },
                             onVibrationToggle = { timerViewModel.setVibrationEnabled(it) },
                             onGradualVolumeToggle = { timerViewModel.setGradualVolumeEnabled(it) },
                             onBack = {
@@ -541,6 +547,14 @@ fun ValueApp(
                             onAddUserSound = { userSound ->
                                 timerViewModel.addImportedSound(userSound)
                             },
+                            onBack = {
+                                currentScreen = AppScreen.SETTINGS
+                            }
+                        )
+                    }
+
+                    AppScreen.PRIVACY_POLICY -> {
+                        PrivacyPolicyScreen(
                             onBack = {
                                 currentScreen = AppScreen.SETTINGS
                             }

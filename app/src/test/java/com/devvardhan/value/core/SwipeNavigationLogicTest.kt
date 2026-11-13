@@ -72,6 +72,15 @@ class SwipeNavigationLogicTest {
             )
         )
 
+        // Blocked on Privacy Policy
+        assertFalse(
+            SwipeNavigationLogic.shouldAllowSwipe(
+                screen = AppScreen.PRIVACY_POLICY,
+                isFullscreen = false,
+                timerStatus = TimerStatus.Idle
+            )
+        )
+
         // Blocked when onboarding style is not yet chosen
         assertFalse(
             SwipeNavigationLogic.shouldAllowSwipe(
