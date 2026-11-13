@@ -66,6 +66,8 @@
     <string name="error_no_browser">No web browser found to open link</string>
     <string name="action_select">Select</string>
     <string name="action_selected">Selected</string>
+    <string name="action_stop_preview">Stop preview</string>
+    <string name="error_file_not_found">File not found</string>
     <string name="action_close">Close</string>
     <string name="style_prefix">Style: %s</string>
     <string name="press_back_again_to_exit">Press back again to exit</string>

@@ -10,6 +10,11 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -40,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -53,8 +59,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.devvardhan.value.R
 import com.devvardhan.value.core.AlarmSoundManager
+import com.devvardhan.value.core.TimerPreferencesRepository
 import com.devvardhan.value.model.AlarmSound
 import com.devvardhan.value.ui.components.AppIcons
 import com.devvardhan.value.ui.theme.BorderSubtle
@@ -90,9 +101,21 @@ fun SoundScreen(
     val localFilesOnlyError = stringResource(R.string.error_local_files_only)
     val invalidAudioError = stringResource(R.string.error_invalid_audio)
 
-    // Stop sound preview whenever leaving this screen
-    DisposableEffect(Unit) {
+    val preferencesRepo = remember { TimerPreferencesRepository(context) }
+    val gradualVolumeEnabled by preferencesRepo.gradualVolumeEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+    val playingSoundId by alarmSoundManager.playingPreviewSoundId.collectAsStateWithLifecycle()
+
+    // Stop sound preview whenever leaving this screen, backgrounding the app, or turning screen off
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                alarmSoundManager.stopPreview()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
             alarmSoundManager.stopPreview()
         }
     }
@@ -201,7 +224,7 @@ fun SoundScreen(
                 withContext(Dispatchers.Main) {
                     onAddUserSound(userSound)
                     onSelectSound(userSound)
-                    alarmSoundManager.previewSound(userSound)
+                    alarmSoundManager.previewSound(userSound, gradualVolume = gradualVolumeEnabled)
                 }
             }
         }
@@ -278,12 +301,18 @@ fun SoundScreen(
             // --- SECTION: DEFAULT ---
             SoundSectionHeader(text = stringResource(R.string.sound_section_default))
 
+            val isPhoneDefaultPlaying = playingSoundId == AlarmSound.ID_PHONE_DEFAULT
             SoundItemRow(
                 title = stringResource(R.string.sound_phone_default),
                 isSelected = selectedSoundId == AlarmSound.ID_PHONE_DEFAULT,
+                isPlaying = isPhoneDefaultPlaying,
                 onClick = {
-                    onSelectSound(AlarmSound.PhoneDefault)
-                    alarmSoundManager.previewSound(AlarmSound.PhoneDefault)
+                    if (isPhoneDefaultPlaying) {
+                        alarmSoundManager.stopPreview()
+                    } else {
+                        onSelectSound(AlarmSound.PhoneDefault)
+                        alarmSoundManager.previewSound(AlarmSound.PhoneDefault, gradualVolume = gradualVolumeEnabled)
+                    }
                 },
                 testTag = "row_sound_phone_default"
             )
@@ -294,12 +323,18 @@ fun SoundScreen(
             SoundSectionHeader(text = stringResource(R.string.sound_section_value_tones))
 
             AlarmSound.BUILT_IN_TONES.forEachIndexed { index, tone ->
+                val isTonePlaying = playingSoundId == tone.id
                 SoundItemRow(
                     title = tone.title,
                     isSelected = selectedSoundId == tone.id,
+                    isPlaying = isTonePlaying,
                     onClick = {
-                        onSelectSound(tone)
-                        alarmSoundManager.previewSound(tone)
+                        if (isTonePlaying) {
+                            alarmSoundManager.stopPreview()
+                        } else {
+                            onSelectSound(tone)
+                            alarmSoundManager.previewSound(tone, gradualVolume = gradualVolumeEnabled)
+                        }
                     },
                     testTag = "row_sound_${tone.toneKey}"
                 )
@@ -314,12 +349,18 @@ fun SoundScreen(
             SoundSectionHeader(text = stringResource(R.string.sound_section_my_sounds))
 
             importedSounds.forEach { userSound ->
+                val isUserSoundPlaying = playingSoundId == userSound.id
                 SoundItemRow(
                     title = userSound.name,
                     isSelected = selectedSoundId == userSound.id,
+                    isPlaying = isUserSoundPlaying,
                     onClick = {
-                        onSelectSound(userSound)
-                        alarmSoundManager.previewSound(userSound)
+                        if (isUserSoundPlaying) {
+                            alarmSoundManager.stopPreview()
+                        } else {
+                            onSelectSound(userSound)
+                            alarmSoundManager.previewSound(userSound, gradualVolume = gradualVolumeEnabled)
+                        }
                     },
                     testTag = "row_sound_user_${userSound.name}"
                 )
@@ -334,7 +375,10 @@ fun SoundScreen(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = { pickAudioLauncher.launch(arrayOf("audio/*")) }
+                        onClick = {
+                            alarmSoundManager.stopPreview()
+                            pickAudioLauncher.launch(arrayOf("audio/*"))
+                        }
                     )
                     .padding(horizontal = 8.dp, vertical = 12.dp)
                     .debugTestTag("row_add_sound"),
@@ -387,6 +431,7 @@ private fun SoundDivider() {
 private fun SoundItemRow(
     title: String,
     isSelected: Boolean,
+    isPlaying: Boolean = false,
     onClick: () -> Unit,
     testTag: String
 ) {
@@ -414,17 +459,49 @@ private fun SoundItemRow(
             modifier = Modifier.weight(1f, fill = false)
         )
 
-        AnimatedVisibility(
-            visible = isSelected,
-            enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.8f, animationSpec = tween(150)),
-            exit = fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                imageVector = AppIcons.Check,
-                contentDescription = "Selected",
-                tint = PureWhite,
-                modifier = Modifier.size(20.dp)
-            )
+            AnimatedVisibility(
+                visible = isPlaying,
+                enter = fadeIn(animationSpec = tween(200)),
+                exit = fadeOut(animationSpec = tween(200))
+            ) {
+                val infiniteTransition = rememberInfiniteTransition(label = "previewPulse")
+                val stopAlpha by infiniteTransition.animateFloat(
+                    initialValue = 0.45f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "stopAlpha"
+                )
+                Icon(
+                    imageVector = AppIcons.Stop,
+                    contentDescription = stringResource(R.string.action_stop_preview),
+                    tint = PureWhite.copy(alpha = stopAlpha),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .debugTestTag("icon_sound_stop")
+                )
+            }
+
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.8f, animationSpec = tween(150)),
+                exit = fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150))
+            ) {
+                Icon(
+                    imageVector = AppIcons.Check,
+                    contentDescription = stringResource(R.string.action_selected),
+                    tint = PureWhite,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .debugTestTag("icon_sound_selected")
+                )
+            }
         }
     }
 }

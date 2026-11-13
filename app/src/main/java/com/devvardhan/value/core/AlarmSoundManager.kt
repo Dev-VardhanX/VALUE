@@ -8,19 +8,22 @@ import android.media.MediaPlayer
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
+import android.util.Log
+import android.widget.Toast
 import androidx.core.net.toUri
-import android.os.Handler
-import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.util.Log
+import com.devvardhan.value.R
 import com.devvardhan.value.model.AlarmSound
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -34,7 +37,8 @@ class AlarmSoundManager(private val context: Context) {
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     private val preferencesRepo = TimerPreferencesRepository(context)
-    private var audioFocusRequest: AudioFocusRequest? = null
+    private var alarmAudioFocusRequest: AudioFocusRequest? = null
+    private var previewAudioFocusRequest: AudioFocusRequest? = null
 
     private var mediaPlayer: MediaPlayer? = null
     private var fallbackRingtone: Ringtone? = null
@@ -45,8 +49,10 @@ class AlarmSoundManager(private val context: Context) {
 
     // For preview playback on the sound configuration screen
     private var previewPlayer: MediaPlayer? = null
-    private var previewTimeoutHandler = Handler(Looper.getMainLooper())
-    private var previewStopRunnable: Runnable? = null
+    private var isPreviewActive = false
+    private var previewVolumeRampJob: Job? = null
+    private val _playingPreviewSoundId = MutableStateFlow<String?>(null)
+    val playingPreviewSoundId: StateFlow<String?> = _playingPreviewSoundId.asStateFlow()
 
     private val vibrator: Vibrator? by lazy {
         try {
@@ -69,7 +75,7 @@ class AlarmSoundManager(private val context: Context) {
         isAlarmActive = true
         Log.d(TAG, "startAlarm triggered")
 
-        requestAudioFocus()
+        requestAlarmAudioFocus()
 
         alarmLaunchJob?.cancel()
         alarmLaunchJob = scope.launch {
@@ -92,30 +98,66 @@ class AlarmSoundManager(private val context: Context) {
         }
     }
 
-    private fun requestAudioFocus() {
+    private fun requestAlarmAudioFocus() {
         try {
             val playbackAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
 
-            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            alarmAudioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                 .setAudioAttributes(playbackAttributes)
                 .setOnAudioFocusChangeListener { /* Alarm priority */ }
                 .build()
 
-            audioFocusRequest?.let { audioManager?.requestAudioFocus(it) }
+            alarmAudioFocusRequest?.let { audioManager?.requestAudioFocus(it) }
         } catch (e: Exception) {
-            Log.w(TAG, "Audio focus request failed", e)
+            Log.w(TAG, "Alarm audio focus request failed", e)
         }
     }
 
-    private fun abandonAudioFocus() {
+    private fun abandonAlarmAudioFocus() {
         try {
-            audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
-            audioFocusRequest = null
+            alarmAudioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+            alarmAudioFocusRequest = null
         } catch (e: Exception) {
-            Log.w(TAG, "Abandon audio focus failed", e)
+            Log.w(TAG, "Abandon alarm audio focus failed", e)
+        }
+    }
+
+    private fun requestPreviewAudioFocus() {
+        try {
+            val playbackAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+
+            previewAudioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(playbackAttributes)
+                .setOnAudioFocusChangeListener { focusChange ->
+                    when (focusChange) {
+                        AudioManager.AUDIOFOCUS_LOSS,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                            Log.d(TAG, "Audio focus lost during preview ($focusChange), stopping preview")
+                            stopPreview()
+                        }
+                    }
+                }
+                .build()
+
+            previewAudioFocusRequest?.let { audioManager?.requestAudioFocus(it) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Preview audio focus request failed", e)
+        }
+    }
+
+    private fun abandonPreviewAudioFocus() {
+        try {
+            previewAudioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+            previewAudioFocusRequest = null
+        } catch (e: Exception) {
+            Log.w(TAG, "Abandon preview audio focus failed", e)
         }
     }
 
@@ -271,20 +313,39 @@ class AlarmSoundManager(private val context: Context) {
             Log.w(TAG, "Error cancelling Vibrator", e)
         }
 
-        abandonAudioFocus()
+        abandonAlarmAudioFocus()
     }
 
     /**
-     * Previews an alarm sound for at most 5 seconds with audio focus on STREAM_ALARM.
-     * Stops any ongoing preview immediately. Does not trigger vibration or start services.
+     * Previews an alarm sound looping on STREAM_ALARM with audio focus.
+     * Honors the gradual volume setting.
+     * Loops indefinitely until the user or system interrupts playback.
      */
     @Synchronized
-    fun previewSound(sound: AlarmSound, onFinished: () -> Unit = {}) {
+    fun previewSound(sound: AlarmSound, gradualVolume: Boolean = false) {
         stopPreview()
 
-        requestAudioFocus()
+        // Missing file safety check for user imported audio
+        if (sound is AlarmSound.UserSound) {
+            try {
+                val uri = sound.uriString.toUri()
+                val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+                if (pfd == null) {
+                    showFileNotFoundToast()
+                    return
+                }
+                pfd.close()
+            } catch (e: Exception) {
+                Log.w(TAG, "User sound file missing or inaccessible: ${sound.uriString}", e)
+                showFileNotFoundToast()
+                return
+            }
+        }
+
+        requestPreviewAudioFocus()
+
         try {
-            previewPlayer = MediaPlayer().apply {
+            val player = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -293,28 +354,83 @@ class AlarmSoundManager(private val context: Context) {
                 )
                 isLooping = true
             }
+            previewPlayer = player
 
-            setDataSourceForSound(previewPlayer!!, sound.id)
-            previewPlayer?.prepare()
-            previewPlayer?.start()
+            setDataSourceForSound(player, sound.id)
+            player.prepare()
+            // Ensure looping is retained after prepare() on all Android decoders
+            player.isLooping = true
 
-            // 5 second maximum preview duration
-            previewStopRunnable = Runnable {
-                stopPreview()
-                onFinished()
+            // Safety listener in case native looping fails on short user audio files
+            player.setOnCompletionListener { mp ->
+                if (isPreviewActive) {
+                    try {
+                        mp.seekTo(0)
+                        mp.start()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error in completion listener loop fallback", e)
+                    }
+                }
             }
-            previewTimeoutHandler.postDelayed(previewStopRunnable!!, 5000L)
+
+            player.setOnErrorListener { _, what, extra ->
+                Log.w(TAG, "Preview MediaPlayer error: what=$what, extra=$extra")
+                stopPreview()
+                true
+            }
+
+            if (gradualVolume) {
+                player.setVolume(0.08f, 0.08f)
+                player.start()
+                startPreviewVolumeRamp()
+            } else {
+                player.setVolume(1.0f, 1.0f)
+                player.start()
+            }
+
+            isPreviewActive = true
+            _playingPreviewSoundId.value = sound.id
         } catch (e: Exception) {
             Log.w(TAG, "Failed to preview sound: ${sound.id}", e)
+            if (sound is AlarmSound.UserSound) {
+                showFileNotFoundToast()
+            }
             stopPreview()
-            onFinished()
+        }
+    }
+
+    private fun showFileNotFoundToast() {
+        scope.launch(Dispatchers.Main) {
+            Toast.makeText(context, R.string.error_file_not_found, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startPreviewVolumeRamp() {
+        previewVolumeRampJob?.cancel()
+        previewVolumeRampJob = scope.launch(Dispatchers.Default) {
+            val totalSteps = 20
+            val intervalMs = 500L
+            for (step in 1..totalSteps) {
+                delay(intervalMs)
+                if (!isPreviewActive) break
+                val fraction = step.toFloat() / totalSteps
+                val volume = (0.08f + (1.0f - 0.08f) * fraction).coerceIn(0f, 1f)
+                try {
+                    previewPlayer?.setVolume(volume, volume)
+                } catch (e: Exception) {
+                    break
+                }
+            }
         }
     }
 
     @Synchronized
     fun stopPreview() {
-        previewStopRunnable?.let { previewTimeoutHandler.removeCallbacks(it) }
-        previewStopRunnable = null
+        isPreviewActive = false
+        _playingPreviewSoundId.value = null
+
+        previewVolumeRampJob?.cancel()
+        previewVolumeRampJob = null
 
         try {
             previewPlayer?.let {
@@ -328,9 +444,7 @@ class AlarmSoundManager(private val context: Context) {
             previewPlayer = null
         }
 
-        if (!isAlarmActive) {
-            abandonAudioFocus()
-        }
+        abandonPreviewAudioFocus()
     }
 
     companion object {
